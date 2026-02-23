@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_, and_
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
@@ -15,7 +15,7 @@ from app.schemas.user import (
     UserProfileResponse,
     ProfileVisibility
 )
-from app.config import settings
+from app.config import settings, JWT_ALGORITHM
 from app.database import get_db
 
 security = HTTPBearer()
@@ -28,7 +28,7 @@ class UserService:
         """Verify JWT token and return user_id"""
         try:
             token = credentials.credentials
-            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[JWT_ALGORITHM])
             user_id = payload.get("sub")
             if user_id is None:
                 raise HTTPException(
@@ -43,13 +43,14 @@ class UserService:
             )
 
     @staticmethod
-    def get_current_user(
+    async def get_current_user(
         credentials: HTTPAuthorizationCredentials = Depends(security),
-        db: Session = Depends(get_db)
+        db: AsyncSession = Depends(get_db)
     ) -> User:
         """Get current authenticated user from token"""
         user_id = UserService.verify_token(credentials)
-        user = db.query(User).filter(User.id == user_id).first()
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -58,19 +59,20 @@ class UserService:
         return user
 
     @staticmethod
-    def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
+    async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
         """Get user by ID"""
-        return db.query(User).filter(User.id == user_id).first()
+        result = await db.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
 
     @staticmethod
-    def get_profile_with_visibility(
-        db: Session,
+    async def get_profile_with_visibility(
+        db: AsyncSession,
         target_user_id: UUID,
         current_user: User
     ) -> UserProfileResponse:
         """Get user profile with appropriate visibility based on relationship"""
 
-        target_user = UserService.get_user_by_id(db, target_user_id)
+        target_user = await UserService.get_user_by_id(db, target_user_id)
         if not target_user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -96,8 +98,8 @@ class UserService:
         )
 
     @staticmethod
-    def update_profile(
-        db: Session,
+    async def update_profile(
+        db: AsyncSession,
         current_user: User,
         update_data: UserProfileUpdate
     ) -> User:
@@ -106,10 +108,13 @@ class UserService:
         # Only update fields that are provided
         if update_data.username is not None:
             # Check if username is already taken
-            existing = db.query(User).filter(
-                User.username == update_data.username,
-                User.id != current_user.id
-            ).first()
+            result = await db.execute(
+                select(User).where(
+                    User.username == update_data.username,
+                    User.id != current_user.id
+                )
+            )
+            existing = result.scalar_one_or_none()
             if existing:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -121,12 +126,13 @@ class UserService:
             current_user.profile_picture = update_data.profile_picture
 
         current_user.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(current_user)
+        await db.commit()
+        await db.refresh(current_user)
 
         return current_user
 
     @staticmethod
-    def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User]:
         """Get user by username"""
-        return db.query(User).filter(User.username == username).first()
+        result = await db.execute(select(User).where(User.username == username))
+        return result.scalar_one_or_none()

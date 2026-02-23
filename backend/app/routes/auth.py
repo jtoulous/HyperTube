@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.config import settings
 from app.schemas.auth import (
@@ -13,13 +13,13 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import AuthService
 
-router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: Request,
     user_data: UserRegister,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Register a new user with email and password.
@@ -46,7 +46,7 @@ async def register(
 async def login(
     request: Request,
     login_data: UserLogin,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Login with email and password.
@@ -57,7 +57,7 @@ async def login(
     Returns user info and JWT token.
     """
     # Authenticate user
-    user = AuthService.login_user(db, login_data)
+    user = await AuthService.login_user(db, login_data)
 
     # Generate token
     access_token = AuthService.create_access_token(user.id)
@@ -71,7 +71,7 @@ async def login(
 async def forgot_password(
     request: Request,
     pass_request: PasswordResetRequest,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Request password reset email.
@@ -89,7 +89,7 @@ async def forgot_password(
 async def reset_password(
     request: Request,
     pass_reset: PasswordReset,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Reset password with token.

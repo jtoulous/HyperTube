@@ -3,11 +3,12 @@ from typing import Optional
 import secrets
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from fastapi import HTTPException, status
 from app.models.user import User, AuthProvider
 from app.schemas.auth import UserRegister, UserLogin, Token
-from app.config import settings
+from app.config import settings, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.services.email_service import EmailService
 import logging
 
@@ -31,12 +32,12 @@ class AuthService:
     @staticmethod
     def create_access_token(user_id: str) -> str:
         """Create JWT access token"""
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode = {
             "sub": str(user_id),
             "exp": expire
         }
-        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=JWT_ALGORITHM)
         return encoded_jwt
 
     @staticmethod
@@ -45,11 +46,12 @@ class AuthService:
         return secrets.token_urlsafe(32)
 
     @staticmethod
-    async def register_user(db: Session, user_data: UserRegister, server: str) -> User:
+    async def register_user(db: AsyncSession, user_data: UserRegister, server: str) -> User:
         """Register a new user with email/password"""
 
         # Check if email already exists
-        existing_user = db.query(User).filter(User.email == user_data.email).first()
+        result = await db.execute(select(User).where(User.email == user_data.email))
+        existing_user = result.scalar_one_or_none()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -57,7 +59,8 @@ class AuthService:
             )
 
         # Check if username already exists
-        existing_username = db.query(User).filter(User.username == user_data.username).first()
+        result = await db.execute(select(User).where(User.username == user_data.username))
+        existing_username = result.scalar_one_or_none()
         if existing_username:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -77,17 +80,18 @@ class AuthService:
         )
 
         db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        await db.commit()
+        await db.refresh(new_user)
 
         return new_user
 
     @staticmethod
-    def login_user(db: Session, login_data: UserLogin) -> User:
+    async def login_user(db: AsyncSession, login_data: UserLogin) -> User:
         """Login user with email/password"""
 
         # Find user
-        user = db.query(User).filter(User.email == login_data.email).first()
+        result = await db.execute(select(User).where(User.email == login_data.email))
+        user = result.scalar_one_or_none()
 
         if not user:
             raise HTTPException(
@@ -117,14 +121,15 @@ class AuthService:
 
         # Update last login
         user.last_login = datetime.utcnow()
-        db.commit()
+        await db.commit()
 
         return user
 
     @staticmethod
-    async def forgot_password(db: Session, email: str, server: str):
+    async def forgot_password(db: AsyncSession, email: str, server: str):
         """Send password reset email"""
-        user = db.query(User).filter(User.email == email).first()
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
 
         if not user:
             raise HTTPException(
@@ -136,7 +141,7 @@ class AuthService:
         reset_token = AuthService.generate_verification_token()
         user.reset_token = reset_token
         user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
-        db.commit()
+        await db.commit()
 
         # Send reset email
         try:
@@ -151,10 +156,11 @@ class AuthService:
             raise
 
     @staticmethod
-    async def reset_password(db: Session, token: str, new_password: str):
+    async def reset_password(db: AsyncSession, token: str, new_password: str):
         """Reset user password with token"""
 
-        user = db.query(User).filter(User.reset_token == token).first()
+        result = await db.execute(select(User).where(User.reset_token == token))
+        user = result.scalar_one_or_none()
 
         if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
             raise HTTPException(
@@ -166,13 +172,13 @@ class AuthService:
         user.password_hash = AuthService.hash_password(new_password)
         user.reset_token = None
         user.reset_token_expires = None
-        db.commit()
+        await db.commit()
 
     @staticmethod
     def verify_token(token: str) -> Optional[str]:
         """Verify JWT token and return user ID"""
         try:
-            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[JWT_ALGORITHM])
             user_id: str = payload.get("sub")
             if user_id is None:
                 return None
@@ -181,7 +187,7 @@ class AuthService:
             return None
 
     @staticmethod
-    def get_current_user(db: Session, token: str) -> User:
+    async def get_current_user(db: AsyncSession, token: str) -> User:
         """Get current user from JWT token"""
         user_id = AuthService.verify_token(token)
         if not user_id:
@@ -190,7 +196,8 @@ class AuthService:
                 detail="Invalid authentication credentials"
             )
 
-        user = db.query(User).filter(User.id == user_id).first()
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -200,16 +207,17 @@ class AuthService:
         return user
 
     @staticmethod
-    def oauth_fortytwo(db: Session, fortytwo_id: str, email: str, username: str, first_name: str, last_name: str) -> User:
+    async def oauth_fortytwo(db: AsyncSession, fortytwo_id: str, email: str, username: str, first_name: str, last_name: str) -> User:
         """Authenticate or register user via 42 OAuth"""
 
         # Check if user exists
-        user = db.query(User).filter(User.email == email).first()
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
 
         if user:
             # Update last login
             user.last_login = datetime.utcnow()
-            db.commit()
+            await db.commit()
             return user
 
         # Create new user
@@ -223,22 +231,23 @@ class AuthService:
         )
 
         db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        await db.commit()
+        await db.refresh(new_user)
 
         return new_user
 
     @staticmethod
-    def oauth_github(db: Session, github_id: str, email: str, username: str, first_name: str, last_name: str) -> User:
+    async def oauth_github(db: AsyncSession, github_id: str, email: str, username: str, first_name: str, last_name: str) -> User:
         """Authenticate or register user via GitHub OAuth"""
 
         # Check if user exists
-        user = db.query(User).filter(User.email == email).first()
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
 
         if user:
             # Update last login
             user.last_login = datetime.utcnow()
-            db.commit()
+            await db.commit()
             return user
 
         # Create new user
@@ -252,7 +261,7 @@ class AuthService:
         )
 
         db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        await db.commit()
+        await db.refresh(new_user)
 
         return new_user
