@@ -1,41 +1,104 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.config import settings
+from app.schemas.auth import (
+    UserRegister,
+    UserLogin,
+    AuthResponse,
+    Token,
+    UserResponse,
+    PasswordResetRequest,
+    PasswordReset
+)
+from app.services.auth_service import AuthService
 
-from app.core.database import get_db
-from app.core.security import hash_password, verify_password, create_access_token
-from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
+router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
-router = APIRouter()
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    request: Request,
+    user_data: UserRegister,
+    db: Session = Depends(get_db)
+):
+    """
+    Register a new user with email and password.
 
+    - **email**: Valid email address
+    - **username**: Unique username (3-50 characters)
+    - **password**: Strong password (minimum 8 characters)
+    - **server**: Server IP address (optional, included in request body)
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
-    # Check if username or email already exists
-    result = await db.execute(
-        select(User).where((User.username == user_in.username) | (User.email == user_in.email))
+    Returns user info and JWT token.
+    """
+    # Create user and send verification email
+    user = await AuthService.register_user(db, user_data, user_data.server or "")
+
+    # Generate token
+    access_token = AuthService.create_access_token(user.id)
+
+    return AuthResponse(
+        user=UserResponse.model_validate(user),
+        token=Token(access_token=access_token)
     )
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Username or email already registered")
 
-    user = User(
-        username=user_in.username,
-        email=user_in.email,
-        hashed_password=hash_password(user_in.password),
+@router.post("/login", response_model=AuthResponse)
+async def login(
+    request: Request,
+    login_data: UserLogin,
+    db: Session = Depends(get_db)
+):
+    """
+    Login with email and password.
+
+    - **email**: Registered email address
+    - **password**: Account password
+
+    Returns user info and JWT token.
+    """
+    # Authenticate user
+    user = AuthService.login_user(db, login_data)
+
+    # Generate token
+    access_token = AuthService.create_access_token(user.id)
+
+    return AuthResponse(
+        user=UserResponse.model_validate(user),
+        token=Token(access_token=access_token)
     )
-    db.add(user)
-    await db.flush()
-    await db.refresh(user)
-    return user
 
+@router.post("/forgot-password")
+async def forgot_password(
+    request: Request,
+    pass_request: PasswordResetRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Request password reset email.
 
-@router.post("/login", response_model=Token)
-async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.username == credentials.username))
-    user = result.scalar_one_or_none()
-    if not user or not verify_password(credentials.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    - **email**: User's email address
+    - **server**: Server address for reset link
+    """
+    await AuthService.forgot_password(db, pass_request.email, pass_request.server or "")
 
-    token = create_access_token(data={"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer"}
+    return {
+        "message": "If the email exists, a password reset link has been sent."
+    }
+
+@router.post("/reset-password")
+async def reset_password(
+    request: Request,
+    pass_reset: PasswordReset,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset password with token.
+
+    - **token**: Password reset token
+    - **new_password**: New password (minimum 8 characters)
+    """
+    await AuthService.reset_password(db, pass_reset.token, pass_reset.new_password)
+
+    return {
+        "message": "Password has been reset successfully."
+    }
