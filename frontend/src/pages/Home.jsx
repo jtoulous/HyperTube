@@ -6,6 +6,7 @@ import FooterBarModule from "../modules/FooterBarModule.jsx";
 export default function Home() {
     const token = localStorage.getItem("token");
 
+
     const handleLogout = () => {
         localStorage.removeItem("token");
         window.location.reload();
