@@ -1,0 +1,9 @@
+.env
+__pycache__/
+node_modules/
+.DS_Store
+.metro-health-check*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+TODO.md
