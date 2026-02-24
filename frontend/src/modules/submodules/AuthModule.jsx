@@ -4,6 +4,7 @@ import { GlobalState } from "../../State";
 
 export default function AuthModule() {
     const { setToken } = GlobalState();
+    const { setUsername } = GlobalState();
     const [currentView, setCurrentView] = useState("login");
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -39,6 +40,8 @@ export default function AuthModule() {
         try {
             const res = await authApi.login({ email: loginEmail, password: loginPassword });
             setToken(res.data.token.access_token);
+            setUsername(res.data.user.username);
+
         } catch (err) {
             setError(extractError(err));
         }

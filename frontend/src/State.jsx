@@ -5,6 +5,7 @@ const StateContext = createContext();
 export function State({ children }) {
     const [leftBarIsOpen, setLeftBarIsOpen] = useState(false)
     const [token, setTokenState] = useState(() => localStorage.getItem('token'))
+    const [username, setUsername] = useState("");
 
     const isLogged = !!token;
 
