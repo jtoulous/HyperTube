@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import secrets
 from passlib.context import CryptContext
@@ -32,7 +32,7 @@ class AuthService:
     @staticmethod
     def create_access_token(user_id: str) -> str:
         """Create JWT access token"""
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode = {
             "sub": str(user_id),
             "exp": expire
@@ -46,7 +46,7 @@ class AuthService:
         return secrets.token_urlsafe(32)
 
     @staticmethod
-    async def register_user(db: AsyncSession, user_data: UserRegister, server: str) -> User:
+    async def register_user(db: AsyncSession, user_data: UserRegister) -> User:
         """Register a new user with email/password"""
 
         # Check if email already exists
@@ -113,20 +113,14 @@ class AuthService:
                 detail="Invalid email or password"
             )
 
-        if not user.email_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Email not verified"
-            )
-
         # Update last login
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
         await db.commit()
 
         return user
 
     @staticmethod
-    async def forgot_password(db: AsyncSession, email: str, server: str):
+    async def forgot_password(db: AsyncSession, email: str):
         """Send password reset email"""
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
@@ -140,7 +134,7 @@ class AuthService:
         # Generate reset token
         reset_token = AuthService.generate_verification_token()
         user.reset_token = reset_token
-        user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+        user.reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
         await db.commit()
 
         # Send reset email
@@ -148,8 +142,7 @@ class AuthService:
             await EmailService.send_password_reset_email(
                 email=user.email,
                 username=user.username,
-                token=reset_token,
-                server=server
+                token=reset_token
             )
         except Exception as e:
             logger.error(f"Failed to send password reset email: {str(e)}")
@@ -162,7 +155,7 @@ class AuthService:
         result = await db.execute(select(User).where(User.reset_token == token))
         user = result.scalar_one_or_none()
 
-        if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
+        if not user or not user.reset_token_expires or user.reset_token_expires.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid or expired reset token"
@@ -216,7 +209,7 @@ class AuthService:
 
         if user:
             # Update last login
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now(timezone.utc)
             await db.commit()
             return user
 
@@ -246,7 +239,7 @@ class AuthService:
 
         if user:
             # Update last login
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now(timezone.utc)
             await db.commit()
             return user
 

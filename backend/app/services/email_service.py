@@ -22,10 +22,12 @@ class EmailService:
     """Service for sending emails"""
 
     @staticmethod
-    async def send_password_reset_email(email: str, username: str, token: str, server: str):
+    async def send_password_reset_email(email: str, username: str, token: str):
         """Send password reset link"""
 
-        reset_url = f"{settings.API_URL}/api/v1/auth/email-redirect?type=reset-password&token={token}&server={server}"
+        reset_url = f"{settings.FRONT_URL}/reset-password?token={token}"
+
+        # TODO: Rework style of email to fit Hypertube project
 
         html_body = f"""
         <!DOCTYPE html>
@@ -43,21 +45,27 @@ class EmailService:
                     padding: 20px;
                 }}
                 .header {{
-                    background-color: #035391;
+                    background-color: #282c34;
                     color: white;
                     padding: 20px;
                     text-align: center;
                     border-radius: 5px 5px 0 0;
+                }}
+                .header h1 {{
+                    color: #fff;
                 }}
                 .content {{
                     background-color: #f9f9f9;
                     padding: 30px;
                     border-radius: 0 0 5px 5px;
                 }}
+                .content h2 {{
+                    color: #282c34;
+                }}
                 .button {{
                     display: inline-block;
                     padding: 12px 30px;
-                    background-color: #035391;
+                    background-color: #282c34;
                     color: white;
                     text-decoration: none;
                     border-radius: 5px;
@@ -74,7 +82,7 @@ class EmailService:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Music Room</h1>
+                    <h1>HyperTube</h1>
                 </div>
                 <div class="content">
                     <h2>Password Reset Request</h2>
@@ -89,7 +97,7 @@ class EmailService:
                     <p>If you didn't request a password reset, you can safely ignore this email.</p>
                 </div>
                 <div class="footer">
-                    <p>&copy; 2026 Music Room. All rights reserved.</p>
+                    <p>&copy; 2026 HyperTube. All rights reserved.</p>
                 </div>
             </div>
         </body>
@@ -97,7 +105,7 @@ class EmailService:
         """
 
         message = MessageSchema(
-            subject="Reset Your Music Room Password",
+            subject="Reset Your HyperTube Password",
             recipients=[email],
             body=html_body,
             subtype=MessageType.html

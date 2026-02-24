@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     MAIL_FROM_NAME: str = os.environ.get("MAIL_FROM_NAME", "Hypertube")
 
     HOST_IP: str = os.environ.get("HOST_IP")
+    FRONT_URL: str = "http://" + HOST_IP + ":8081"
 
     class Config:
         env_file = ".env"

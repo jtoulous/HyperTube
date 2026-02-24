@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { authApi } from "../../api/auth";
+import { GlobalState } from "../../State";
 
 export default function AuthModule() {
+    const { setToken } = GlobalState();
     const [currentView, setCurrentView] = useState("login");
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -36,8 +38,7 @@ export default function AuthModule() {
         clearMessages();
         try {
             const res = await authApi.login({ email: loginEmail, password: loginPassword });
-            localStorage.setItem("token", res.data.token.access_token);
-            window.location.reload();
+            setToken(res.data.token.access_token);
         } catch (err) {
             setError(extractError(err));
         }
@@ -50,6 +51,10 @@ export default function AuthModule() {
             setError("Passwords do not match");
             return;
         }
+        if (regPassword.length < 8) {
+            setError("Password must be at least 8 characters");
+            return;
+        }
         try {
             const res = await authApi.register({
                 email: regEmail,
@@ -58,8 +63,7 @@ export default function AuthModule() {
                 first_name: regFirstName || undefined,
                 last_name: regLastName || undefined,
             });
-            localStorage.setItem("token", res.data.token.access_token);
-            window.location.reload();
+            setToken(res.data.token.access_token);
         } catch (err) {
             setError(extractError(err));
         }

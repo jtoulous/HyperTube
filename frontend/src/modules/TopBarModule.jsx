@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { GlobalState } from "../State";
 import AuthModule from "./submodules/AuthModule";
 
-export default function TopBarModule({ handleLogout }) {
-    const { isLogged } = GlobalState();
+export default function TopBarModule() {
+    const { isLogged, logout } = GlobalState();
     const [authModuleVisible, setAuthModuleVisible] = useState(false);
     const authWrapperRef = useRef(null);
 
@@ -28,7 +28,7 @@ export default function TopBarModule({ handleLogout }) {
         <div style={styles.topBar}>
             <span style={styles.title}>HyperTube</span>
             {isLogged ? (
-                <button style={styles.logoutButton} onClick={handleLogout}>Logout</button>
+                <button style={styles.logoutButton} onClick={logout}>Logout</button>
             ) : (
                 <div style={styles.authWrapper} ref={authWrapperRef}>
                     <button style={styles.authButton} onClick={handleAuthModule}>Login / Register</button>

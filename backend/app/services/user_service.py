@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -125,7 +125,7 @@ class UserService:
         if update_data.profile_picture is not None:
             current_user.profile_picture = update_data.profile_picture
 
-        current_user.updated_at = datetime.utcnow()
+        current_user.updated_at = datetime.now(timezone.utc)
         await db.commit()
         await db.refresh(current_user)
 

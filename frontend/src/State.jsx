@@ -1,32 +1,32 @@
-import React, { createContext, useContext, useState, useEffect, use } from 'react';
-
-
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const StateContext = createContext();
 
-
-
 export function State({ children }) {
-//    const [ws_group, setWsGroup] = useState("global")
-
     const [leftBarIsOpen, setLeftBarIsOpen] = useState(false)
-    const [isLogged, setIsLogged] = useState(false)
+    const [token, setTokenState] = useState(() => localStorage.getItem('token'))
 
+    const isLogged = !!token;
 
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            window._globalState = {
-                leftBarIsOpen, setLeftBarIsOpen,
-                isLogged, setIsLogged
-            };
+    const setToken = useCallback((newToken) => {
+        setTokenState(newToken);
+        if (newToken) {
+            localStorage.setItem('token', newToken);
+        } else {
+            localStorage.removeItem('token');
         }
-    });
+    }, []);
 
+    const logout = useCallback(() => {
+        setToken(null);
+    }, [setToken]);
 
     return (
         <StateContext.Provider value={{
             leftBarIsOpen, setLeftBarIsOpen,
-            isLogged, setIsLogged
+            isLogged,
+            token, setToken,
+            logout
         }}>
             {children}
         </StateContext.Provider>

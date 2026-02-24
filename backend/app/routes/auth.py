@@ -27,12 +27,11 @@ async def register(
     - **email**: Valid email address
     - **username**: Unique username (3-50 characters)
     - **password**: Strong password (minimum 8 characters)
-    - **server**: Server IP address (optional, included in request body)
 
     Returns user info and JWT token.
     """
     # Create user and send verification email
-    user = await AuthService.register_user(db, user_data, user_data.server or "")
+    user = await AuthService.register_user(db, user_data)
 
     # Generate token
     access_token = AuthService.create_access_token(user.id)
@@ -77,9 +76,8 @@ async def forgot_password(
     Request password reset email.
 
     - **email**: User's email address
-    - **server**: Server address for reset link
     """
-    await AuthService.forgot_password(db, pass_request.email, pass_request.server or "")
+    await AuthService.forgot_password(db, pass_request.email)
 
     return {
         "message": "If the email exists, a password reset link has been sent."
