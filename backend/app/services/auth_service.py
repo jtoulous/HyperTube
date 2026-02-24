@@ -200,25 +200,48 @@ class AuthService:
         return user
 
     @staticmethod
-    async def oauth_fortytwo(db: AsyncSession, fortytwo_id: str, email: str, username: str, first_name: str, last_name: str) -> User:
+    async def _get_unique_username(db: AsyncSession, username: str) -> str:
+        """Ensure username is unique by appending a suffix if needed."""
+        result = await db.execute(select(User).where(User.username == username))
+        if not result.scalar_one_or_none():
+            return username
+        counter = 1
+        while True:
+            candidate = f"{username}_{counter}"
+            result = await db.execute(select(User).where(User.username == candidate))
+            if not result.scalar_one_or_none():
+                return candidate
+            counter += 1
+
+    @staticmethod
+    async def oauth_fortytwo(db: AsyncSession, fortytwo_id: str, email: str, username: str, first_name: str, last_name: str, profile_picture: str) -> User:
         """Authenticate or register user via 42 OAuth"""
 
-        # Check if user exists
-        result = await db.execute(select(User).where(User.email == email))
+        # Check if user exists by fortytwo_id first, then by email
+        result = await db.execute(select(User).where(User.fortytwo_id == fortytwo_id))
         user = result.scalar_one_or_none()
+
+        if not user:
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
 
         if user:
             # Update last login
             user.last_login = datetime.now(timezone.utc)
+            user.profile_picture = profile_picture
+            if not user.fortytwo_id:
+                user.fortytwo_id = fortytwo_id
             await db.commit()
             return user
 
-        # Create new user
+        # Create new user with unique username
+        unique_username = await AuthService._get_unique_username(db, username)
         new_user = User(
             email=email,
-            username=username,
+            username=unique_username,
             first_name=first_name,
             last_name=last_name,
+            profile_picture=profile_picture,
             auth_provider=AuthProvider.FORTYTWO,
             fortytwo_id=fortytwo_id
         )
@@ -230,25 +253,35 @@ class AuthService:
         return new_user
 
     @staticmethod
-    async def oauth_github(db: AsyncSession, github_id: str, email: str, username: str, first_name: str, last_name: str) -> User:
+    async def oauth_github(db: AsyncSession, github_id: str, email: str, username: str, first_name: str, last_name: str, profile_picture: str = "") -> User:
         """Authenticate or register user via GitHub OAuth"""
 
-        # Check if user exists
-        result = await db.execute(select(User).where(User.email == email))
+        # Check if user exists by github_id first, then by email
+        result = await db.execute(select(User).where(User.github_id == github_id))
         user = result.scalar_one_or_none()
+
+        if not user:
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
 
         if user:
             # Update last login
             user.last_login = datetime.now(timezone.utc)
+            if profile_picture:
+                user.profile_picture = profile_picture
+            if not user.github_id:
+                user.github_id = github_id
             await db.commit()
             return user
 
-        # Create new user
+        # Create new user with unique username
+        unique_username = await AuthService._get_unique_username(db, username)
         new_user = User(
             email=email,
-            username=username,
+            username=unique_username,
             first_name=first_name,
             last_name=last_name,
+            profile_picture=profile_picture,
             auth_provider=AuthProvider.GITHUB,
             github_id=github_id
         )

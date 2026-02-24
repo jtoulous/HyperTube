@@ -24,6 +24,8 @@ export default function TopBarModule() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [authModuleVisible]);
 
+     {/* TODO: Replace this with icons: home, auth and profile */}
+
     return (
         <div style={styles.topBar}>
             <span style={styles.title}>HyperTube</span>

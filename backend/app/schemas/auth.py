@@ -27,6 +27,10 @@ class PasswordReset(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8, max_length=100)
 
+class OAuthCodeRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
 class EmailVerification(BaseModel):
     token: str
 

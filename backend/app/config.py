@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     HOST_IP: str = os.environ.get("HOST_IP")
     FRONT_URL: str = "http://" + HOST_IP + ":8081"
 
+    FORTYTWO_UID: str = os.environ.get("FORTYTWO_UID")
+    FORTYTWO_SECRET: str = os.environ.get("FORTYTWO_SECRET")
+
+    GITHUB_UID: str = os.environ.get("GITHUB_UID")
+    GITHUB_SECRET: str = os.environ.get("GITHUB_SECRET")
+
     class Config:
         env_file = ".env"
 

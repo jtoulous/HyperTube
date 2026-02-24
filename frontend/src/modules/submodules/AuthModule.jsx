@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { authApi } from "../../api/auth";
 import { GlobalState } from "../../State";
 
@@ -86,6 +86,18 @@ export default function AuthModule() {
         { key: "reset", label: "Reset" },
     ];
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        if (code) {
+            // TODO: exchange code for token
+            // For now just clear the code from URL
+            params.delete("code");
+            const newUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+            window.history.replaceState({}, "", newUrl);
+        }
+    }, []);
+
     return (
         <div style={styles.authModule}>
             <div style={styles.tabBar}>
@@ -121,8 +133,8 @@ export default function AuthModule() {
                     <button style={styles.oauthButton} type="button" onClick={() => authApi.oauth42()}>
                         Continue with 42
                     </button>
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGoogle()}>
-                        Continue with Google
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}>
+                        Continue with GitHub
                     </button>
                 </form>
             )}
@@ -146,8 +158,8 @@ export default function AuthModule() {
                     <button style={styles.oauthButton} type="button" onClick={() => authApi.oauth42()}>
                         Continue with 42
                     </button>
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGoogle()}>
-                        Continue with Google
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}>
+                        Continue with GitHub
                     </button>
                 </form>
             )}

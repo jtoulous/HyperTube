@@ -1,23 +1,31 @@
 import api from "./client";
 
 export const authApi = {
-  login: (data) => api.post("/auth/login", data),
+    login: (data) => api.post("/auth/login", data),
 
-  register: (data) => api.post("/auth/register", data),
+    register: (data) => api.post("/auth/register", data),
 
-  forgotPassword: (data) => api.post("/auth/forgot-password", data),
+    forgotPassword: (data) => api.post("/auth/forgot-password", data),
 
-  resetPassword: (data) => api.post("/auth/reset-password", data),
+    resetPassword: (data) => api.post("/auth/reset-password", data),
 
-  oauth42: () => {
-    // TODO: redirect to 42 OAuth authorization URL
-    window.location.href = "/auth/42/authorize";
-  },
+    oauth42: () => {
+        const clientId = import.meta.env.VITE_FORTYTWO_UID;
+        const redirectUri = window.location.origin + '/oauth-callback/42';
+        const apiUrl = 'https://api.intra.42.fr/oauth/authorize?client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&response_type=code';
 
-  oauthGithub: () => {
-    // TODO: redirect to Google OAuth authorization URL
-    window.location.href = "/auth/github/authorize";
-  },
+        window.location.href = apiUrl;
+    },
 
-  getMe: () => api.get("/users/me"),
+    oauthGithub: () => {
+        const clientId = import.meta.env.VITE_GITHUB_UID;
+        const redirectUri = window.location.origin + '/oauth-callback/github';
+        const apiUrl = 'https://github.com/login/oauth/authorize?client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=user:email';
+
+        window.location.href = apiUrl;
+    },
+
+    oauthCallback: (provider, data) => api.post(`/auth/oauth-callback/${provider}`, data),
+
+    getMe: () => api.get("/users/me"),
 };

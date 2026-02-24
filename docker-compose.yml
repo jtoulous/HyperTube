@@ -17,6 +17,10 @@ services:
       - MAIL_FROM=${MAIL_FROM}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME}
       - HOST_IP=${HOST_IP}
+      - FORTYTWO_UID=${FORTYTWO_UID}
+      - FORTYTWO_SECRET=${FORTYTWO_SECRET}
+      - GITHUB_UID=${GITHUB_UID}
+      - GITHUB_SECRET=${GITHUB_SECRET}
     command: ["postgres", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     depends_on:
       - database
@@ -30,6 +34,8 @@ services:
     ports:
       - "0.0.0.0:8081:8081"
     environment:
+      - VITE_FORTYTWO_UID=${FORTYTWO_UID}
+      - VITE_GITHUB_UID=${GITHUB_UID}
       - HOST_IP=${HOST_IP}
     volumes:
       - ./frontend:/app
