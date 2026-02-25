@@ -83,7 +83,7 @@ async def stream_video(
     filename: str,
     resolution: Optional[str] = Query(
         default="original",
-        description="Target resolution height: 480 | 720 | original",
+        description="Target resolution height: 360 | 480 | 720 | original",
     ),
     audio_track: int = Query(default=0, description="Audio track index (0-based)"),
     start: float = Query(default=0.0, description="Seek start time in seconds"),
@@ -110,6 +110,7 @@ async def stream_video(
 
     if use_copy:
         cmd += [
+            "-avoid_negative_ts", "make_zero",
             "-c:v", "copy",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
         ]
@@ -128,8 +129,7 @@ async def stream_video(
         ]
 
     cmd += [
-        "-f", "mp4",
-        "-movflags", "frag_keyframe+empty_moov+faststart",
+        "-f", "matroska",
         "pipe:1",
     ]
 
@@ -138,35 +138,28 @@ async def stream_video(
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
     )
 
-    PRE_BUFFER_SIZE = 8 * 1024 * 1024 if use_copy else 4 * 1024 * 1024
-    pre_buffer = bytearray()
-    while len(pre_buffer) < PRE_BUFFER_SIZE:
-        chunk = await process.stdout.read(64 * 1024)
-        if not chunk:
-            break
-        pre_buffer.extend(chunk)
-
     async def iter_ffmpeg():
-        # Flush the pre-buffer first
-        yield bytes(pre_buffer)
         try:
             while True:
                 chunk = await process.stdout.read(64 * 1024)
                 if not chunk:
                     break
                 yield chunk
-        except Exception as e:
+        except (Exception, GeneratorExit) as e:
             logger.error(f"FFmpeg stream error: {e}")
         finally:
             if process.returncode is None:
-                process.kill()
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
             await process.wait()
 
     return StreamingResponse(
         iter_ffmpeg(),
-        media_type="video/mp4",
+        media_type="video/x-matroska",
         headers={"Cache-Control": "no-cache"},
     )

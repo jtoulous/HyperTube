@@ -50,7 +50,6 @@ export default function PlayerModule({ filename }) {
     const [resolution,  setResolution]  = useState("original");
     const [audioTrack,  setAudioTrack]  = useState(0);
     const [startParam,  setStartParam]  = useState(0);
-    const [streamKey,   setStreamKey]   = useState(0);
 
     // File metadata (from /info endpoint)
     const [totalDuration, setTotalDuration] = useState(0);
@@ -74,11 +73,12 @@ export default function PlayerModule({ filename }) {
     const progress = totalDuration > 0 ? (absTime / totalDuration) * 100 : 0;
     const bufferProgress = totalDuration > 0 ? ((timeOffset + buffered) / totalDuration) * 100 : 0;
 
+    const streamUrl = buildUrl(filename, resolution, audioTrack, startParam);
+
     // Fetch file info (duration + audio tracks)
     useEffect(() => {
         setTimeOffset(0);
         setStartParam(0);
-        setStreamKey(k => k + 1);
         setAudioTrack(0);
         setResolution("original");
 
@@ -94,7 +94,7 @@ export default function PlayerModule({ filename }) {
             });
     }, [filename]);
 
-    // Video event listeners
+    // Video event listeners (attached once, persistent across stream reloads)
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -111,7 +111,6 @@ export default function PlayerModule({ filename }) {
         const onWaiting    = () => setStalled(true);
         const onCanPlay    = () => {
             setStalled(false);
-            // Auto-resume if the video was playing before the stream was reloaded
             if (wasPlayingRef.current) {
                 wasPlayingRef.current = false;
                 video.play().catch(() => {});
@@ -136,8 +135,24 @@ export default function PlayerModule({ filename }) {
             video.removeEventListener("waiting",      onWaiting);
             video.removeEventListener("canplay",      onCanPlay);
             video.removeEventListener("playing",      onCanPlay);
+            // Abort any in-flight stream on unmount
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
         };
-    }, [streamKey]);
+    }, []);
+
+    // Load new stream URL into persistent <video> element.
+    // Setting .src on an attached element auto-aborts the previous fetch.
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        setCurrentTime(0);
+        setBuffered(0);
+        setStalled(true);
+        video.src = streamUrl;
+        video.load();
+    }, [streamUrl]);
 
     // Fullscreen listener
     useEffect(() => {
@@ -211,7 +226,6 @@ export default function PlayerModule({ filename }) {
         setStartParam(time ?? absTime);
         if (res   !== undefined) setResolution(res);
         if (track !== undefined) setAudioTrack(track);
-        setStreamKey(k => k + 1);
     }, [timeOffset]);
 
     // Seek to an absolute timestamp (seconds) by reloading the stream
@@ -246,7 +260,6 @@ export default function PlayerModule({ filename }) {
         setShowLangMenu(false);
     }, [reloadStream]);
 
-    const streamUrl = buildUrl(filename, resolution, audioTrack, startParam);
     const volIcon = muted || volume === 0
         ? <Icon path={mdiVolumeOff}    size={1} />
         : volume < 0.5
@@ -263,15 +276,12 @@ export default function PlayerModule({ filename }) {
             onMouseLeave={() => { if (playing) setControlsVisible(false); }}
         >
             <video
-                key={streamKey}
                 ref={videoRef}
                 style={styles.video}
                 preload="metadata"
                 autoPlay={false}
                 onClick={togglePlay}
-            >
-                <source src={streamUrl} type="video/mp4" />
-            </video>
+            />
 
             {/* Big play overlay when paused */}
             {!playing && !stalled && (
