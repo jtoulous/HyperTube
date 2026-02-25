@@ -6,9 +6,9 @@ import App from "./App";
 import "./index.css";
 
 createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <State>
-      <App />
-    </State>
-  </StrictMode>
+    <StrictMode>
+        <State>
+            <App />
+        </State>
+    </StrictMode>
 );

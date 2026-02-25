@@ -13,9 +13,9 @@ router = APIRouter(prefix="/stream", tags=["Streaming"])
 MEDIA_DIRS = ["/downloads", "/default-videos"]
 
 RESOLUTION_MAP = {
-    "360":  360,
-    "480":  480,
-    "720":  720,
+    "360": 360,
+    "480": 480,
+    "720": 720,
 }
 
 def _safe_path(filename: str) -> str:
