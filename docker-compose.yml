@@ -21,11 +21,14 @@ services:
       - FORTYTWO_SECRET=${FORTYTWO_SECRET}
       - GITHUB_UID=${GITHUB_UID}
       - GITHUB_SECRET=${GITHUB_SECRET}
+      - QBITTORRENT_URL=http://hypertube-torrent-client:8080
     command: ["postgres", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     depends_on:
       - database
+      - torrent-client
     volumes:
       - ./backend:/app
+      - torrent_downloads:/downloads
     restart: always
 
   frontend:
@@ -49,7 +52,7 @@ services:
     container_name: hypertube-database
     hostname: postgres
     ports:
-      - "0.0.0.0:5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
@@ -58,7 +61,28 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  torrent-client:
+    build: ./torrent-client
+    container_name: hypertube-torrent-client
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - WEBUI_PORT=8080
+      - QBITTORRENT_USER=${QBITTORRENT_USER:-admin}
+      - QBITTORRENT_PASS=${QBITTORRENT_PASS:-adminadmin}
+    volumes:
+      - torrent_client_config:/config
+      - torrent_downloads:/downloads
+    restart: unless-stopped
+
 volumes:
+  torrent_client_config:
+    driver: local
+  torrent_downloads:
+    driver: local
   postgres_data:
     driver: local
   frontend_node_modules:
