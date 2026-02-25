@@ -1,0 +1,61 @@
+2026-02-24 13:37:39.0806 Info Starting Jackett v0.24.1193
+2026-02-24 13:37:39.3860 Info Environment version: 9.0.13 (/app/Jackett/)
+2026-02-24 13:37:39.3886 Info OS version: Unix 5.15.0.170 (64bit OS) (64bit process)
+2026-02-24 13:37:39.3886 Info Jackett variant: CoreLinuxMuslAmdx64
+2026-02-24 13:37:39.3886 Info File /etc/issue: Welcome to Alpine Linux 3.22
+2026-02-24 13:37:39.3886 Info Running in Docker: Yes (image build: v0.24.1193-ls322)
+2026-02-24 13:37:39.3886 Info ThreadPool MaxThreads: 32767 workerThreads, 1000 completionPortThreads
+2026-02-24 13:37:39.3886 Info App config/log directory: /config/Jackett
+2026-02-24 13:37:39.3886 Info Using proxy: Disabled
+2026-02-24 13:37:39.3886 Info Using FlareSolverr: No
+2026-02-24 13:37:39.3919 Info Using HTTP Client: HttpWebClient2
+2026-02-24 13:37:39.3919 Info Loading Native indexers ...
+2026-02-24 13:37:39.4089 Info Loaded 71 Native indexers.
+2026-02-24 13:37:39.4089 Info Loading Cardigann indexers from: /config/cardigann/definitions/, /etc/xdg/cardigan/definitions/, /app/Jackett/Definitions
+2026-02-24 13:37:40.0739 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.4246 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.5363 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.6286 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.6538 Info Loaded 556 Cardigann indexers.
+2026-02-24 13:37:40.6538 Info Loaded 627 indexers in total
+2026-02-24 13:37:40.6575 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.6575 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.6575 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.6575 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-24 13:37:40.6575 Info Adding aggregate indexer ('all' indexer) ...
+2026-02-24 13:37:40.6641 Info Adding filter indexer ('type:public' indexer) ...
+2026-02-24 13:37:40.6641 Info Adding filter indexer ('type:private' indexer) ...
+2026-02-24 13:37:40.6641 Info Adding filter indexer ('type:semi-public' indexer) ...
+2026-02-24 13:37:40.7382 Warn No XML encryptor configured. Key {df98e4ef-309e-4ac7-8786-ff2a73bb1d1b} may be persisted to storage in unencrypted form.
+2026-02-24 13:37:40.7587 Info Jackett startup finished in 1.828 s
+2026-02-24 14:37:40.6717 Info Checking for updates... Jackett variant: CoreLinuxMuslAmdx64
+2026-02-24 14:37:40.6717 Info Skipping update check as it is disabled.
+2026-02-24 15:59:40.4478 Info Jackett stopped
+2026-02-25 11:34:40.6248 Info Starting Jackett v0.24.1205
+2026-02-25 11:34:40.9144 Info Environment version: 9.0.13 (/app/Jackett/)
+2026-02-25 11:34:40.9144 Info OS version: Unix 5.15.0.170 (64bit OS) (64bit process)
+2026-02-25 11:34:40.9184 Info Jackett variant: CoreLinuxMuslAmdx64
+2026-02-25 11:34:40.9184 Info File /etc/issue: Welcome to Alpine Linux 3.22
+2026-02-25 11:34:40.9184 Info Running in Docker: Yes (image build: v0.24.1205-ls323)
+2026-02-25 11:34:40.9184 Info ThreadPool MaxThreads: 32767 workerThreads, 1000 completionPortThreads
+2026-02-25 11:34:40.9184 Info App config/log directory: /config/Jackett
+2026-02-25 11:34:40.9184 Info Using proxy: Disabled
+2026-02-25 11:34:40.9184 Info Using FlareSolverr: No
+2026-02-25 11:34:40.9184 Info Using HTTP Client: HttpWebClient2
+2026-02-25 11:34:40.9222 Info Loading Native indexers ...
+2026-02-25 11:34:40.9379 Info Loaded 71 Native indexers.
+2026-02-25 11:34:40.9379 Info Loading Cardigann indexers from: /config/cardigann/definitions/, /etc/xdg/cardigan/definitions/, /app/Jackett/Definitions
+2026-02-25 11:34:41.4315 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-25 11:34:41.6746 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-25 11:34:42.1734 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-25 11:34:42.1929 Info Loaded 556 Cardigann indexers.
+2026-02-25 11:34:42.1929 Info Loaded 627 indexers in total
+2026-02-25 11:34:42.1929 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-25 11:34:42.1969 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-25 11:34:42.1969 Warn Some of the configuration files (.json) are in the old format. Please, update Jackett.
+2026-02-25 11:34:42.1969 Info Adding aggregate indexer ('all' indexer) ...
+2026-02-25 11:34:42.1969 Info Adding filter indexer ('type:public' indexer) ...
+2026-02-25 11:34:42.1969 Info Adding filter indexer ('type:private' indexer) ...
+2026-02-25 11:34:42.1969 Info Adding filter indexer ('type:semi-public' indexer) ...
+2026-02-25 11:34:42.2887 Info Jackett startup finished in 1.835 s
+2026-02-25 11:36:52.1400 Info Jackett stopped
