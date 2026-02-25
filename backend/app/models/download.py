@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Float, BigInteger, DateTime, Enum as SQLEnum, Text, ForeignKey
+from sqlalchemy import Column, String, Float, BigInteger, DateTime, Enum as SQLEnum, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -14,6 +14,9 @@ class DownloadStatus(str, enum.Enum):
 
 class Download(Base):
     __tablename__ = "downloads"
+    __table_args__ = (
+        UniqueConstraint("user_id", "torrent_hash", name="uq_user_torrent_hash"),
+    )
 
     # Primary key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -25,7 +28,7 @@ class Download(Base):
     title = Column(String(512), nullable=False)
     imdb_id = Column(String(20), nullable=True, index=True)  # e.g., "tt1375666"
     magnet_link = Column(Text, nullable=False)
-    torrent_hash = Column(String(64), unique=True, nullable=False, index=True)  # qBittorrent hash
+    torrent_hash = Column(String(64), nullable=False, index=True)  # qBittorrent hash
 
     # Status and progress
     status = Column(SQLEnum(DownloadStatus, create_type=False, native_enum=False), default=DownloadStatus.DOWNLOADING, nullable=False)

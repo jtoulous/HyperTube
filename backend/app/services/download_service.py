@@ -23,12 +23,24 @@ class DownloadService:
     ) -> Download:
         """
         Add a torrent to qBittorrent and create a Download record.
+        If the user already has a download with this hash, return it.
         """
         # Extract torrent hash from magnet link
         torrent_hash = self._get_hash_from_magnet(magnet_link)
         if not torrent_hash:
             logger.error(f"Could not extract hash from magnet: {magnet_link[:80]}…")
             raise Exception("Invalid magnet link format")
+
+        # Check if this user already has a download with this hash
+        existing = await session.execute(
+            select(Download).where(
+                and_(Download.user_id == user_id, Download.torrent_hash == torrent_hash)
+            )
+        )
+        existing_download = existing.scalar_one_or_none()
+        if existing_download:
+            logger.info(f"Download already exists for user {user_id}: {torrent_hash}")
+            return existing_download
 
         # Add magnet to qBittorrent
         async with TorrentService() as ts:
@@ -97,19 +109,30 @@ class DownloadService:
                 download.status = DownloadStatus.ERROR
                 logger.warning(f"No progress info for {download.torrent_hash}")
             else:
-                # Map qBittorrent state to our status
                 state = progress.get("state", "")
-                if state == "forcedUP" or state == "uploading":
+
+                # Map qBittorrent states
+                COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP"}
+                DOWNLOADING_STATES = {
+                    "downloading", "forcedDL", "metaDL", "allocating",
+                    "stalledDL", "queuedDL", "checkingDL", "checkingResumeData", "moving"
+                }
+                PAUSED_STATES = {"pausedDL", "pausedUP"}
+                ERROR_STATES = {"error", "missingFiles", "unknown"}
+
+                if state in COMPLETED_STATES:
                     download.status = DownloadStatus.COMPLETED
-                elif state in ("stalledDL", "downloading", "allocating", "queuedForChecking"):
+                elif state in DOWNLOADING_STATES:
                     download.status = DownloadStatus.DOWNLOADING
-                elif state == "pausedDL" or state == "pausedUP":
+                elif state in PAUSED_STATES:
                     download.status = DownloadStatus.PAUSED
+                elif state in ERROR_STATES:
+                    download.status = DownloadStatus.ERROR
+                    logger.warning(f"Torrent {download.torrent_hash} in state: {state}")
                 else:
-                    # stalledUP, error states, etc.
-                    if state.startswith("missing"):
-                        download.status = DownloadStatus.ERROR
-                    else:
+                    logger.warning(f"Unknown qBittorrent state '{state}' for {download.torrent_hash}")
+                    # Don't overwrite a terminal status with an ambiguous fallback
+                    if download.status not in (DownloadStatus.COMPLETED, DownloadStatus.ERROR):
                         download.status = DownloadStatus.DOWNLOADING
 
                 # Update progress fields
@@ -118,6 +141,6 @@ class DownloadService:
                 if download.total_bytes > 0:
                     download.progress = (download.downloaded_bytes / download.total_bytes) * 100.0
                 else:
-                    download.progress = 0.0
+                    download.progress = progress.get("progress", 0.0) * 100.0
 
         return download

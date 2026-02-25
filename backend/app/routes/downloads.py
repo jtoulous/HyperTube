@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -32,6 +33,7 @@ async def create_download(
             imdb_id=data.imdb_id,
         )
         await session.commit()
+        await session.refresh(download)
         return download
     except Exception as e:
         logger.error(f"Failed to create download: {e}")
@@ -69,8 +71,58 @@ async def get_download_progress(
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
-    # Update progress from qBittorrent
-    download = await download_service.update_progress(session, download)
-    await session.commit()
+    # Terminal statuses are final — trust the DB, skip qBittorrent entirely
+    from app.models.download import DownloadStatus
+    if download.status not in (DownloadStatus.COMPLETED, DownloadStatus.ERROR):
+        download = await download_service.update_progress(session, download)
+        await session.commit()
+        await session.refresh(download)
 
     return download
+
+
+@router.get("/{download_id}/files")
+async def get_download_files(
+    download_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List playable video files for a completed download.
+    Returns filenames relative to /downloads, ready to pass to /api/v1/stream/{filename}.
+    """
+    from uuid import UUID
+    from app.services.torrent_service import TorrentService
+
+    VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".m4v", ".webm"}
+
+    try:
+        download_id = UUID(download_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid download ID")
+
+    download = await download_service.get_download(session, download_id, current_user.id)
+    if not download:
+        raise HTTPException(status_code=404, detail="Download not found")
+
+    try:
+        async with TorrentService() as ts:
+            files = await ts.get_files(download.torrent_hash)
+    except Exception as e:
+        logger.error(f"Failed to list torrent files: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch file list")
+
+    video_files = []
+    for f in files:
+        name = f.get("name", "")
+        ext = os.path.splitext(name)[1].lower()
+        if ext in VIDEO_EXTS:
+            video_files.append({
+                "name": name,
+                "size": f.get("size", 0),
+                "stream_url": f"/api/v1/stream/{name}",
+            })
+
+    # Sort by size descending (main feature film is typically the largest)
+    video_files.sort(key=lambda x: x["size"], reverse=True)
+    return {"files": video_files}

@@ -74,7 +74,7 @@ class TorrentService:
     ) -> bool:
         """
         Add a magnet link to qBittorrent.
-        Returns True on success.
+        Returns True on success or if torrent already exists.
         """
         payload = {
             "urls": magnet_link,
@@ -86,12 +86,24 @@ class TorrentService:
             payload["tags"] = tags
 
         resp = await self._post("/api/v2/torrents/add", data=payload)
-        ok = resp.status_code == 200 and resp.text.strip() != "Fails."
-        if ok:
+        if resp.status_code == 200 and resp.text.strip() != "Fails.":
             logger.info(f"Magnet added: {magnet_link[:80]}…")
-        else:
-            logger.error(f"Failed to add magnet: {resp.text}")
-        return ok
+            return True
+
+        # qBittorrent returns "Fails." when the torrent already exists in its list.
+        # Verify by checking if the hash is already tracked.
+        if "xt=urn:btih:" in magnet_link:
+            try:
+                torrent_hash = magnet_link.split("xt=urn:btih:")[1].split("&")[0].lower()
+                existing = await self._get("/api/v2/torrents/info", params={"hashes": torrent_hash})
+                if existing:
+                    logger.info(f"Torrent already in qBittorrent: {torrent_hash}")
+                    return True
+            except Exception:
+                pass
+
+        logger.error(f"Failed to add magnet: {resp.text}")
+        return False
 
     async def list_torrents(
         self,

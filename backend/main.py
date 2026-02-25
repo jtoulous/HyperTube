@@ -13,6 +13,35 @@ async def lifespan(app: FastAPI):
     # Startup: create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Migrate downloads table: replace global unique(torrent_hash) with unique(user_id, torrent_hash)
+        await conn.execute(__import__("sqlalchemy").text("""
+            DO $$
+            BEGIN
+                -- Drop old global unique index on torrent_hash if it exists
+                IF EXISTS (
+                    SELECT 1 FROM pg_indexes
+                    WHERE tablename = 'downloads' AND indexname = 'ix_downloads_torrent_hash'
+                ) THEN
+                    DROP INDEX ix_downloads_torrent_hash;
+                END IF;
+                -- Drop old unique constraint if it exists
+                IF EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'downloads_torrent_hash_key' AND conrelid = 'downloads'::regclass
+                ) THEN
+                    ALTER TABLE downloads DROP CONSTRAINT downloads_torrent_hash_key;
+                END IF;
+                -- Add per-user unique constraint if not already present
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'uq_user_torrent_hash' AND conrelid = 'downloads'::regclass
+                ) THEN
+                    ALTER TABLE downloads ADD CONSTRAINT uq_user_torrent_hash UNIQUE (user_id, torrent_hash);
+                END IF;
+            END $$;
+        """))
+
     yield
     # Shutdown: dispose engine
     await engine.dispose()

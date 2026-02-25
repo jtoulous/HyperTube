@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { GlobalState } from "../State";
 import { searchApi } from "../api/search";
 import { downloadsApi } from "../api/downloads";
+import PlayerModule from "./submodules/PlayerModule";
 import "./MainContentModule.css";
 
 function formatSize(bytes) {
@@ -22,14 +23,60 @@ function formatDate(dateStr) {
     }
 }
 
+// ─── Watch Modal (wraps colleague's PlayerModule) ────────────────────────────
+
+function WatchModal({ file, title, allFiles, onFileChange, onClose }) {
+    // Close on Escape
+    useEffect(() => {
+        const onKey = (e) => { if (e.key === "Escape") onClose(); };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [onClose]);
+
+    return (
+        <div className="vp-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="vp-modal-wrapper">
+                <div className="vp-modal-header">
+                    <span className="vp-modal-title">{title}</span>
+                    {allFiles.length > 1 && (
+                        <select
+                            className="vp-file-select"
+                            value={file.name}
+                            onChange={e => {
+                                const chosen = allFiles.find(f => f.name === e.target.value);
+                                if (chosen) onFileChange(chosen);
+                            }}
+                        >
+                            {allFiles.map(f => (
+                                <option key={f.name} value={f.name}>
+                                    {f.name.split("/").pop()} ({formatSize(f.size)})
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                    <button className="vp-close-btn" onClick={onClose} title="Close (Esc)">✕</button>
+                </div>
+                <PlayerModule filename={file.name} />
+            </div>
+        </div>
+    );
+}
+
+// ─── Download Item ────────────────────────────────────────────────────────────
+
+const TERMINAL_STATUSES = new Set(["completed", "error"]);
 
 function DownloadItem({ download }) {
     const [progress, setProgress] = useState(null);
-    const pollingRef = useRef(true);
+    // If the DB already says the download is done, never poll at all
+    const pollingRef = useRef(!TERMINAL_STATUSES.has(download.status));
+    const [playerFile, setPlayerFile] = useState(null);
+    const [allFiles, setAllFiles] = useState([]);
+    const [watchLoading, setWatchLoading] = useState(false);
 
-    // Poll for progress updates
+    // Poll for progress updates — skipped entirely for terminal statuses
     useEffect(() => {
-        if (!download) return;
+        if (!download || !pollingRef.current) return;
 
         let isMounted = true;
 
@@ -41,8 +88,8 @@ function DownloadItem({ download }) {
                 if (isMounted) {
                     setProgress(res.data);
                     
-                    // Stop polling only if complete or error
-                    if (res.data.status === "completed" || res.data.status === "error") {
+                    // Stop polling permanently once a terminal state is reached
+                    if (TERMINAL_STATUSES.has(res.data.status)) {
                         pollingRef.current = false;
                     }
                 }
@@ -61,25 +108,72 @@ function DownloadItem({ download }) {
             isMounted = false;
             clearInterval(interval);
         };
-    }, [download.id]);
+    }, [download.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleWatch = async () => {
+        setWatchLoading(true);
+        try {
+            const res = await downloadsApi.getDownloadFiles(download.id);
+            const files = res.data.files || [];
+            if (files.length === 0) {
+                alert("No playable video files found.");
+                return;
+            }
+            setAllFiles(files);
+            setPlayerFile(files[0]);
+        } catch (err) {
+            console.error("Failed to load files:", err);
+            alert("Could not load video files.");
+        } finally {
+            setWatchLoading(false);
+        }
+    };
 
     const displayProgress = progress || download;
     const progressPct = Math.min(displayProgress.progress || 0, 100);
+    const isCompleted = displayProgress.status === "completed";
 
     return (
-        <div className={"download-item download-item-" + (displayProgress.status || "downloading")}>
-            <div className="download-header">
-                <span className="download-title">{displayProgress.title}</span>
-                <span className="download-status">{displayProgress.status}</span>
+        <>
+            {playerFile && (
+                <WatchModal
+                    file={playerFile}
+                    title={displayProgress.title}
+                    allFiles={allFiles}
+                    onFileChange={setPlayerFile}
+                    onClose={() => setPlayerFile(null)}
+                />
+            )}
+            <div className={"download-item download-item-" + (displayProgress.status || "downloading")}>
+                <div className="download-header">
+                    <span className="download-title">{displayProgress.title}</span>
+                    <div className="download-header-right">
+                        {isCompleted && (
+                            <button
+                                className="download-watch-btn"
+                                onClick={handleWatch}
+                                disabled={watchLoading}
+                                title="Watch this video"
+                            >
+                                {watchLoading ? (
+                                    <span className="download-watch-spinner" />
+                                ) : (
+                                    "▶ Watch"
+                                )}
+                            </button>
+                        )}
+                        <span className="download-status">{displayProgress.status}</span>
+                    </div>
+                </div>
+                <div className="download-progress-bar">
+                    <div className="download-progress-fill" style={{ width: progressPct + "%" }} />
+                </div>
+                <div className="download-meta">
+                    <span className="download-size">{formatSize(displayProgress.downloaded_bytes)} / {formatSize(displayProgress.total_bytes)}</span>
+                    <span className="download-percent">{progressPct.toFixed(1)}%</span>
+                </div>
             </div>
-            <div className="download-progress-bar">
-                <div className="download-progress-fill" style={{ width: progressPct + "%" }} />
-            </div>
-            <div className="download-meta">
-                <span className="download-size">{formatSize(displayProgress.downloaded_bytes)} / {formatSize(displayProgress.total_bytes)}</span>
-                <span className="download-percent">{progressPct.toFixed(1)}%</span>
-            </div>
-        </div>
+        </>
     );
 }
 

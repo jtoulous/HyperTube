@@ -11,4 +11,6 @@ export const downloadsApi = {
     getDownloads: () => api.get("/downloads"),
 
     getDownloadProgress: (downloadId) => api.get(`/downloads/${downloadId}/progress`),
+
+    getDownloadFiles: (downloadId) => api.get(`/downloads/${downloadId}/files`),
 };
