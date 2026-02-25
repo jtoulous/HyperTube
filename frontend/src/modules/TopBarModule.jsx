@@ -39,14 +39,16 @@ export default function TopBarModule() {
                 <Icon path={mdiHome} size={1.5} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                <div style={styles.iconWrapper}>
-                    <Icon path={mdiAccount} size={1.5} onClick={handleProfileModule} />
-                </div>
-                <ProfileModule isOpen={profileModuleVisible} onClose={() => setProfileModuleVisible(false)} username={username} />
                 {isLogged ? (
-                    <div style={styles.iconWrapper}>
-                        <Icon path={mdiLogout} onClick={logout} size={1.5} />
-                    </div>
+                    <>
+                        <div style={styles.iconWrapper}>
+                            <Icon path={mdiAccount} size={1.5} onClick={handleProfileModule} />
+                        </div>
+                        <ProfileModule isOpen={profileModuleVisible} onClose={() => setProfileModuleVisible(false)} targetUsername={username} />
+                        <div style={styles.iconWrapper}>
+                            <Icon path={mdiLogout} onClick={logout} size={1.5} />
+                        </div>
+                    </>
                 ) : (
                     <div style={styles.iconWrapper}>
                         <div style={styles.authWrapper} ref={authWrapperRef}>

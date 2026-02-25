@@ -8,16 +8,24 @@ class ProfileVisibility:
     PRIVATE = "private"    # Only the user can see
 
 class UserProfileUpdate(BaseModel):
+    email: Optional[str] = Field(None, max_length=255)
     first_name: Optional[str] = Field(None, max_length=255)
     last_name: Optional[str] = Field(None, max_length=255)
     username: Optional[str] = Field(None, min_length=3, max_length=100)
     profile_picture: Optional[str] = None
     language: Optional[str] = Field(None, max_length=10)
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=100)
+
 class UserPublicProfile(BaseModel):
     id: uuid.UUID
     username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     profile_picture: Optional[str] = None
+    language: Optional[str] = None
     created_at: datetime
 
     class Config:

@@ -11,6 +11,7 @@ export default defineConfig({
         target: "http://hypertube-backend:8000",
         changeOrigin: true,
       },
+
     },
   },
 });

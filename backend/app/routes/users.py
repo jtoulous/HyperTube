@@ -6,7 +6,8 @@ from app.database import get_db
 from app.schemas.user import (
     UserProfileUpdate,
     UserProfileResponse,
-    UserPrivateProfile
+    UserPrivateProfile,
+    PasswordChange,
 )
 from app.services.user_service import UserService
 from app.models.user import User
@@ -84,3 +85,23 @@ async def update_my_profile(
     """
     updated_user = await UserService.update_profile(db, current_user, update_data)
     return UserPrivateProfile.model_validate(updated_user)
+
+
+@router.put("/me/password")
+async def change_password(
+    password_data: PasswordChange,
+    current_user: User = Depends(UserService.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Change current user's password.
+
+    Requires: Valid JWT token in Authorization header
+    Only works for email-authenticated accounts.
+    """
+    await UserService.change_password(
+        db, current_user,
+        password_data.current_password,
+        password_data.new_password
+    )
+    return {"message": "Password changed successfully"}
