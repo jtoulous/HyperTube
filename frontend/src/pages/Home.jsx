@@ -5,10 +5,10 @@ import FooterBarModule from "../modules/FooterBarModule.jsx";
 
 export default function Home() {
     return (
-        <>
-            <TopBarModule />
+        <div className="home-page">
+            <TopBarModule handleLogout={handleLogout} />
             <MainContentModule />
             <FooterBarModule />
-        </>
+        </div>
     );
 }

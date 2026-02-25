@@ -6,6 +6,8 @@ export function State({ children }) {
     const [leftBarIsOpen, setLeftBarIsOpen] = useState(false)
     const [token, setTokenState] = useState(() => localStorage.getItem('token'))
     const [username, setUsername] = useState("");
+        
+    const [availableContentList, setAvailableContentList] = useState([])
 
     const isLogged = !!token;
 

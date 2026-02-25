@@ -47,6 +47,20 @@ services:
     tty: true
     restart: unless-stopped
 
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: hypertube-jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - AUTO_UPDATE=true
+    volumes:
+      - ./jackett:/config/Jackett
+    ports:
+      - "0.0.0.0:9117:9117"
+    restart: unless-stopped
+
   database:
     build: ./database
     container_name: hypertube-database
@@ -87,3 +101,4 @@ volumes:
     driver: local
   frontend_node_modules:
     driver: local
+
