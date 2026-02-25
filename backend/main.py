@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import engine, Base
 from app.routes import router as api_router
+from app.models import User, Download  # Import models to register them with Base
 
 
 @asynccontextmanager

@@ -30,7 +30,11 @@ class Settings(BaseSettings):
 
     QBITTORRENT_URL: str = os.environ.get("QBITTORRENT_URL", "http://hypertube-torrent-client:8080")
     QBITTORRENT_USER: str = os.environ.get("QBITTORRENT_USER", "admin")
-    QBITTORRENT_PASS: str = os.environ.get("QBITTORRENT_PASS", "adminadmin")
+    QBITTORRENT_PASS: str = os.environ.get("QBITTORRENT_PASS", "admin")
+
+    JACKETT_URL: str = os.environ.get("JACKETT_URL", "http://hypertube-jackett:9117")
+    JACKETT_API_KEY: str = os.environ.get("JACKETT_API_KEY", "hypertube_jackett_api_key")
+    OMDB_API_KEY: str = os.environ.get("OMDB_API_KEY", "")
 
     class Config:
         env_file = ".env"

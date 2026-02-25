@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import uuid
+import logging
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -9,6 +11,8 @@ from sqlalchemy import select
 
 from app.config import settings, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -40,16 +44,30 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Log token presence
+    if not token:
+        logger.warning("No token provided in Authorization header")
+        raise credentials_exception
+    
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id: str | None = payload.get("sub")
         if user_id is None:
+            logger.warning("Token has no 'sub' claim")
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        logger.warning(f"JWT decode error: {e}")
         raise credentials_exception
 
-    result = await db.execute(select(User).where(User.id == int(user_id)))
-    user = result.scalar_one_or_none()
-    if user is None:
+    try:
+        result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+        user = result.scalar_one_or_none()
+        if user is None:
+            logger.warning(f"User not found for id: {user_id}")
+            raise credentials_exception
+        logger.info(f"User authenticated: {user.username}")
+        return user
+    except ValueError as e:
+        logger.warning(f"Invalid UUID format: {user_id}")
         raise credentials_exception
-    return user

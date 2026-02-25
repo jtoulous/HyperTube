@@ -24,10 +24,14 @@ services:
       - DISCORD_UID=${DISCORD_UID}
       - DISCORD_SECRET=${DISCORD_SECRET}
       - QBITTORRENT_URL=http://hypertube-torrent-client:8080
+      - JACKETT_URL=http://hypertube-jackett:9117
+      - JACKETT_API_KEY=hypertube_jackett_api_key
+      - OMDB_API_KEY=${OMDB_API_KEY:-}
     command: ["postgres", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     depends_on:
       - database
       - torrent-client
+      - jackett
     volumes:
       - ./backend:/app
       - torrent_downloads:/downloads
@@ -52,7 +56,7 @@ services:
     restart: unless-stopped
 
   jackett:
-    image: lscr.io/linuxserver/jackett:latest
+    build: ./jackett
     container_name: hypertube-jackett
     environment:
       - PUID=1000
@@ -60,7 +64,7 @@ services:
       - TZ=Europe/Paris
       - AUTO_UPDATE=true
     volumes:
-      - ./jackett:/config/Jackett
+      - jackett_data:/config/Jackett
     ports:
       - "0.0.0.0:9117:9117"
     restart: unless-stopped
@@ -90,7 +94,7 @@ services:
       - TZ=Etc/UTC
       - WEBUI_PORT=8080
       - QBITTORRENT_USER=${QBITTORRENT_USER:-admin}
-      - QBITTORRENT_PASS=${QBITTORRENT_PASS:-adminadmin}
+      - QBITTORRENT_PASS=${QBITTORRENT_PASS:-admin}
     volumes:
       - torrent_client_config:/config
       - torrent_downloads:/downloads
@@ -101,6 +105,8 @@ volumes:
   torrent_client_config:
     driver: local
   torrent_downloads:
+    driver: local
+  jackett_data:
     driver: local
   postgres_data:
     driver: local
