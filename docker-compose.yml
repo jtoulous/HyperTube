@@ -31,6 +31,7 @@ services:
     volumes:
       - ./backend:/app
       - torrent_downloads:/downloads
+      - ./torrent-client/default-videos:/default-videos:ro
     restart: always
 
   frontend:
@@ -93,6 +94,7 @@ services:
     volumes:
       - torrent_client_config:/config
       - torrent_downloads:/downloads
+      - ./torrent-client/default-videos:/downloads:ro
     restart: unless-stopped
 
 volumes:
