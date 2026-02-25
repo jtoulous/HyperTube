@@ -24,7 +24,7 @@ class User(Base):
     username = Column(String(100), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=True)  # Null for OAuth users
     auth_provider = Column(SQLEnum(AuthProvider, create_type=False, native_enum=False), default=AuthProvider.EMAIL, nullable=False)
-    language = Column(String(10), nullable=True)  # ISO language code, e.g. "en", "fr"
+    language = Column(String(10), nullable=False, default="en")  # ISO language code, e.g. "en", "fr"
 
     # Password reset
     reset_token = Column(String(255), nullable=True)
