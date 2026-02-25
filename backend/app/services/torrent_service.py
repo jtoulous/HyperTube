@@ -10,7 +10,7 @@ class TorrentService:
     """
     Wrapper around the qBittorrent Web API.
 
-    Docs: https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)
+    Docs: https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)
 
     Usage:
         async with TorrentService() as ts:

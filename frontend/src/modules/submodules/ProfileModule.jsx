@@ -151,6 +151,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
     const providerLabel = (p) => {
         if (p === "FORTYTWO") return "42";
         if (p === "GITHUB") return "GitHub";
+        if (p === "DISCORD") return "Discord";
         return "Email";
     };
 

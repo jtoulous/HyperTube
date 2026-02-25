@@ -153,6 +153,22 @@ async def oauth_callback(
                 "profile_picture": data.get("avatar_url", ""),
             },
         },
+        "discord": {
+            "token_url": "https://discord.com/api/oauth2/token",
+            "user_url": "https://discord.com/api/users/@me",
+            "client_id": settings.DISCORD_UID,
+            "client_secret": settings.DISCORD_SECRET,
+            "token_field": "access_token",
+            "token_encoding": "form",
+            "extract_user": lambda data: {
+                "provider_id": str(data["id"]),
+                "email": data.get("email", ""),
+                "username": data.get("global_name") or data.get("username", ""),
+                "first_name": data.get("global_name") or data.get("username", ""),
+                "last_name": "",
+                "profile_picture": f"https://cdn.discordapp.com/avatars/{data['id']}/{data['avatar']}.png" if data.get("avatar") else "",
+            },
+        },
     }
 
     if provider not in OAUTH_PROVIDERS:
@@ -175,7 +191,11 @@ async def oauth_callback(
     async with httpx.AsyncClient() as client:
         # GitHub requires Accept: application/json to get JSON back
         headers = {"Accept": "application/json"}
-        token_response = await client.post(cfg["token_url"], json=token_data, headers=headers)
+        # Discord requires form-encoded data; others accept JSON
+        if cfg.get("token_encoding") == "form":
+            token_response = await client.post(cfg["token_url"], data=token_data, headers=headers)
+        else:
+            token_response = await client.post(cfg["token_url"], json=token_data, headers=headers)
         if token_response.status_code != 200:
             logger.error(f"{provider} token exchange failed: {token_response.text}")
             raise HTTPException(
@@ -233,6 +253,16 @@ async def oauth_callback(
         user = await AuthService.oauth_github(
             db,
             github_id=user_info["provider_id"],
+            email=user_info["email"],
+            username=user_info["username"],
+            first_name=user_info["first_name"],
+            last_name=user_info["last_name"],
+            profile_picture=user_info.get("profile_picture", "")
+        )
+    elif provider == "discord":
+        user = await AuthService.oauth_discord(
+            db,
+            discord_id=user_info["provider_id"],
             email=user_info["email"],
             username=user_info["username"],
             first_name=user_info["first_name"],

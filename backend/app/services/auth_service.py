@@ -291,3 +291,43 @@ class AuthService:
         await db.refresh(new_user)
 
         return new_user
+
+    @staticmethod
+    async def oauth_discord(db: AsyncSession, discord_id: str, email: str, username: str, first_name: str, last_name: str, profile_picture: str = "") -> User:
+        """Authenticate or register user via Discord OAuth"""
+
+        # Check if user exists by discord_id first, then by email
+        result = await db.execute(select(User).where(User.discord_id == discord_id))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
+
+        if user:
+            # Update last login
+            user.last_login = datetime.now(timezone.utc)
+            if profile_picture:
+                user.profile_picture = profile_picture
+            if not user.discord_id:
+                user.discord_id = discord_id
+            await db.commit()
+            return user
+
+        # Create new user with unique username
+        unique_username = await AuthService._get_unique_username(db, username)
+        new_user = User(
+            email=email,
+            username=unique_username,
+            first_name=first_name,
+            last_name=last_name,
+            profile_picture=profile_picture,
+            auth_provider=AuthProvider.DISCORD,
+            discord_id=discord_id
+        )
+
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+
+        return new_user

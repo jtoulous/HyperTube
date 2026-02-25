@@ -25,6 +25,14 @@ export const authApi = {
         window.location.href = apiUrl;
     },
 
+    oauthDiscord: () => {
+        const clientId = import.meta.env.VITE_DISCORD_UID;
+        const redirectUri = window.location.origin + '/oauth-callback/discord';
+        const apiUrl = 'https://discord.com/api/oauth2/authorize?client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&response_type=code&scope=identify%20email';
+
+        window.location.href = apiUrl;
+    },
+
     oauthCallback: (provider, data) => api.post(`/auth/oauth-callback/${provider}`, data),
 
     getMe: () => api.get("/users/me"),

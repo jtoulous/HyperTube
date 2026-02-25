@@ -39,6 +39,7 @@ class UserPrivateProfile(UserPublicProfile):
     language: Optional[str] = None
     fortytwo_id: Optional[str] = None
     github_id: Optional[str] = None
+    discord_id: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     class Config:

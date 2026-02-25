@@ -15,10 +15,13 @@ class UserLogin(BaseModel):
     password: str
 
 class FortytwoAuthRequest(BaseModel):
-    id_token: str  # Google ID token
+    id_token: str
 
 class GithubAuthRequest(BaseModel):
-    id_token: str  # Google ID token
+    id_token: str
+
+class DiscordAuthRequest(BaseModel):
+    id_token: str
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr

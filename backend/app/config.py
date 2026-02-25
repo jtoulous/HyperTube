@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     GITHUB_UID: str = os.environ.get("GITHUB_UID")
     GITHUB_SECRET: str = os.environ.get("GITHUB_SECRET")
 
+    DISCORD_UID: str = os.environ.get("DISCORD_UID")
+    DISCORD_SECRET: str = os.environ.get("DISCORD_SECRET")
+
     QBITTORRENT_URL: str = os.environ.get("QBITTORRENT_URL", "http://hypertube-torrent-client:8080")
     QBITTORRENT_USER: str = os.environ.get("QBITTORRENT_USER", "admin")
     QBITTORRENT_PASS: str = os.environ.get("QBITTORRENT_PASS", "adminadmin")

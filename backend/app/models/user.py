@@ -10,6 +10,7 @@ class AuthProvider(str, enum.Enum):
     EMAIL = "EMAIL"
     FORTYTWO = "FORTYTWO"
     GITHUB = "GITHUB"
+    DISCORD = "DISCORD"
 
 class User(Base):
     __tablename__ = "users"
@@ -33,6 +34,7 @@ class User(Base):
     # OAuth linking
     fortytwo_id = Column(String(255), unique=True, nullable=True, index=True)
     github_id = Column(String(255), unique=True, nullable=True, index=True)
+    discord_id = Column(String(255), unique=True, nullable=True, index=True)
 
     # Profile
     profile_picture = Column(String, nullable=True)  # URL to profile picture
@@ -42,7 +44,7 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     last_login = Column(DateTime(timezone=True), nullable=True)
 
-    if password_hash is None and fortytwo_id is None and github_id is None:
+    if password_hash is None and fortytwo_id is None and github_id is None and discord_id is None:
         raise ValueError("A user must have at least one authentication method.")
 
     def __repr__(self):

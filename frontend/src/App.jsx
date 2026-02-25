@@ -12,6 +12,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/oauth-callback/42" element={<OAuthCallback provider="42" />} />
           <Route path="/oauth-callback/github" element={<OAuthCallback provider="github" />} />
+          <Route path="/oauth-callback/discord" element={<OAuthCallback provider="discord" />} />
           <Route path="*" element={<Home />} />
         </Routes>
       </BrowserRouter>

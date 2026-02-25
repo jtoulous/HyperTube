@@ -136,6 +136,9 @@ export default function AuthModule() {
                     <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}>
                         Continue with GitHub
                     </button>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthDiscord()}>
+                        Continue with Discord
+                    </button>
                 </form>
             )}
 
@@ -160,6 +163,9 @@ export default function AuthModule() {
                     </button>
                     <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}>
                         Continue with GitHub
+                    </button>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthDiscord()}>
+                        Continue with Discord
                     </button>
                 </form>
             )}

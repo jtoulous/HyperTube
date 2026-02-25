@@ -21,6 +21,8 @@ services:
       - FORTYTWO_SECRET=${FORTYTWO_SECRET}
       - GITHUB_UID=${GITHUB_UID}
       - GITHUB_SECRET=${GITHUB_SECRET}
+      - DISCORD_UID=${DISCORD_UID}
+      - DISCORD_SECRET=${DISCORD_SECRET}
       - QBITTORRENT_URL=http://hypertube-torrent-client:8080
     command: ["postgres", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     depends_on:
@@ -39,6 +41,7 @@ services:
     environment:
       - VITE_FORTYTWO_UID=${FORTYTWO_UID}
       - VITE_GITHUB_UID=${GITHUB_UID}
+      - VITE_DISCORD_UID=${DISCORD_UID}
       - HOST_IP=${HOST_IP}
     volumes:
       - ./frontend:/app
