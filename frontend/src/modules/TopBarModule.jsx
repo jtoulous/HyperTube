@@ -7,7 +7,7 @@ import Icon from '@mdi/react';
 import { mdiHome, mdiAccount, mdiLogout, mdiLogin } from '@mdi/js';
 
 export default function TopBarModule() {
-    const { isLogged, logout } = GlobalState();
+    const { isLogged, logout, username } = GlobalState();
     const [authModuleVisible, setAuthModuleVisible] = useState(false);
     const [profileModuleVisible, setProfileModuleVisible] = useState(false);
     const authWrapperRef = useRef(null);
@@ -42,7 +42,7 @@ export default function TopBarModule() {
                 <div style={styles.iconWrapper}>
                     <Icon path={mdiAccount} size={1.5} onClick={handleProfileModule} />
                 </div>
-                <ProfileModule isOpen={profileModuleVisible} onClose={() => setProfileModuleVisible(false)} />
+                <ProfileModule isOpen={profileModuleVisible} onClose={() => setProfileModuleVisible(false)} username={username} />
                 {isLogged ? (
                     <div style={styles.iconWrapper}>
                         <Icon path={mdiLogout} onClick={logout} size={1.5} />

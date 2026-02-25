@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 
 export default function ProfileModule({ isOpen, onClose, username }) {
-    // Lock body scroll when drawer is open
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = "hidden";

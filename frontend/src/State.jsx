@@ -27,7 +27,8 @@ export function State({ children }) {
             leftBarIsOpen, setLeftBarIsOpen,
             isLogged,
             token, setToken,
-            logout
+            logout,
+            username, setUsername
         }}>
             {children}
         </StateContext.Provider>

@@ -3,8 +3,7 @@ import { authApi } from "../../api/auth";
 import { GlobalState } from "../../State";
 
 export default function AuthModule() {
-    const { setToken } = GlobalState();
-    const { setUsername } = GlobalState();
+    const { setToken, setUsername } = GlobalState();
     const [currentView, setCurrentView] = useState("login");
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -93,8 +92,6 @@ export default function AuthModule() {
         const params = new URLSearchParams(window.location.search);
         const code = params.get("code");
         if (code) {
-            // TODO: exchange code for token
-            // For now just clear the code from URL
             params.delete("code");
             const newUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
             window.history.replaceState({}, "", newUrl);

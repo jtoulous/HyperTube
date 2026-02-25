@@ -6,7 +6,7 @@ import { authApi } from "../api/auth";
 export default function OAuthCallback({ provider }) {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { setToken } = GlobalState();
+    const { setToken, setUsername } = GlobalState();
     const [error, setError] = useState("");
     const exchanged = useRef(false);
 
@@ -25,6 +25,7 @@ export default function OAuthCallback({ provider }) {
                 const redirectUri = window.location.origin + "/oauth-callback/" + provider;
                 const res = await authApi.oauthCallback(provider, { code, redirect_uri: redirectUri });
                 setToken(res.data.token.access_token);
+                setUsername(res.data.user.username);
                 navigate("/", { replace: true });
             } catch (err) {
                 const detail = err.response?.data?.detail;
