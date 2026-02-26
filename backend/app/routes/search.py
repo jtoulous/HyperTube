@@ -3,14 +3,14 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from app.services.jackett_service import JackettService
-from app.services.omdb_service import OmdbService
+from app.services.tmdb_service import TmdbService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/search", tags=["search"])
 
 jackett = JackettService()
-omdb = OmdbService()
+tmdb = TmdbService()
 
 # Popular query terms used when no genre is selected — cycles through pages
 _POPULAR_QUERIES = [
@@ -39,7 +39,7 @@ async def browse_media(
 ):
     """
     Browse popular movies. Queries Jackett (cat 2000), optionally enriches with
-    OMDB (poster/rating/year), then filters/sorts/paginates.
+    TMDB (poster/rating/year), then filters/sorts/paginates.
     """
     # ── 1. Gather raw Jackett results ──────────────────────────────────────
     search_term = genre if genre else _POPULAR_QUERIES[(page - 1) % len(_POPULAR_QUERIES)]
@@ -58,9 +58,9 @@ async def browse_media(
     # ── 3. Deduplicate by imdbid ───────────────────────────────────────────
     deduped = _deduplicate(raw)
 
-    # ── 4. OMDB enrichment — only items with an imdbid, cap at 40 ─────────
+    # ── 4. TMDB enrichment — only items with an imdbid, cap at 40 ─────────
     to_enrich = [r for r in deduped if r.get("imdbid")][:40]
-    enriched_map = await _enrich_map(to_enrich)
+    enriched_map = await _enrich_map(to_enrich, tmdb)
 
     # Merge enrichment back into full list
     merged = []
@@ -75,7 +75,7 @@ async def browse_media(
         seen_titles.add(title_key)
         merged.append(r)
 
-    # ── 5. Genre post-filter (when using OMDB genre tags) ─────────────────
+    # ── 5. Genre post-filter (when using TMDB genre tags) ─────────────────
     if genre:
         with_tag   = [r for r in merged if _matches_genre(r, genre)]
         without_tag = [r for r in merged if not _matches_genre(r, genre)]
@@ -151,12 +151,13 @@ def _deduplicate(results: list) -> list:
     return list(best.values()) + no_imdb
 
 
-async def _enrich_map(results: list) -> dict:
+async def _enrich_map(results: list, tmdb_svc: TmdbService) -> dict:
     """
-    Fetch OMDB data in parallel with a small semaphore (3) and short timeout (8s).
+    Fetch TMDB data in parallel.  The TmdbService handles rate-limiting (35 req/s)
+    and caching internally, so we can use a higher semaphore here.
     Returns a dict of imdbid → enrichment fields.
     """
-    semaphore = asyncio.Semaphore(3)
+    semaphore = asyncio.Semaphore(15)
     out: dict[str, dict] = {}
 
     async def fetch_one(r: dict):
@@ -165,12 +166,12 @@ async def _enrich_map(results: list) -> dict:
             return
         async with semaphore:
             try:
-                details = await asyncio.wait_for(omdb.get_by_imdb(imdbid), timeout=8.0)
+                details = await asyncio.wait_for(tmdb_svc.get_by_imdb(imdbid), timeout=10.0)
             except asyncio.TimeoutError:
-                logger.warning(f"OMDB timeout for {imdbid}")
+                logger.warning(f"TMDB timeout for {imdbid}")
                 return
             except Exception as e:
-                logger.warning(f"OMDB error for {imdbid}: {e}")
+                logger.warning(f"TMDB error for {imdbid}: {e}")
                 return
         if not details:
             return
@@ -219,7 +220,7 @@ async def get_media_details(imdb_id: str):
     imdb_id = imdb_id.strip()
     if not imdb_id.startswith("tt"):
         imdb_id = "tt" + imdb_id
-    details = await omdb.get_by_imdb(imdb_id)
+    details = await tmdb.get_by_imdb(imdb_id)
     if not details:
         raise HTTPException(status_code=404, detail=f"No details found for {imdb_id}")
     return details

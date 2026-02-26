@@ -310,12 +310,12 @@ function DownloadItem({ download }) {
 
         const fetchProgress = async () => {
             if (!isMounted || !pollingRef.current) return;
-            
+
             try {
                 const res = await downloadsApi.getDownloadProgress(download.id);
                 if (isMounted) {
                     setProgress(res.data);
-                    
+
                     // Stop polling permanently once a terminal state is reached
                     if (TERMINAL_STATUSES.has(res.data.status)) {
                         pollingRef.current = false;
@@ -328,10 +328,10 @@ function DownloadItem({ download }) {
 
         // Initial fetch
         fetchProgress();
-        
+
         // Poll every 1 second for more responsive updates
         const interval = setInterval(fetchProgress, 1000);
-        
+
         return () => {
             isMounted = false;
             clearInterval(interval);
@@ -412,7 +412,7 @@ function SearchResultRow({ result, isExpanded, onToggle, onDownload }) {
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [detailsError, setDetailsError] = useState(null);
 
-    // Fetch OMDB details when expanding a row with an imdbid
+    // Fetch TMDB details when expanding a row with an imdbid
     const handleToggle = () => {
         if (!isExpanded && result.imdbid && !mediaDetails && !loadingDetails) {
             setLoadingDetails(true);
@@ -421,7 +421,7 @@ function SearchResultRow({ result, isExpanded, onToggle, onDownload }) {
                 .then(res => setMediaDetails(res.data))
                 .catch((err) => {
                     const msg = err?.response?.data?.detail || err?.message || "Could not load details";
-                    console.error("OMDB fetch error:", result.imdbid, msg);
+                    console.error("TMDB fetch error:", result.imdbid, msg);
                     setDetailsError(msg);
                 })
                 .finally(() => setLoadingDetails(false));
@@ -501,7 +501,7 @@ function SearchResultRow({ result, isExpanded, onToggle, onDownload }) {
                         </div>
                     )}
 
-                    {/* Loading OMDB */}
+                    {/* Loading TMDB */}
                     {result.imdbid && loadingDetails && (
                         <div className="search-result-details-loading">
                             <div className="search-details-spinner" />
@@ -509,12 +509,12 @@ function SearchResultRow({ result, isExpanded, onToggle, onDownload }) {
                         </div>
                     )}
 
-                    {/* OMDB error */}
+                    {/* TMDB error */}
                     {result.imdbid && detailsError && !loadingDetails && (
                         <div className="search-result-details-error">{detailsError}</div>
                     )}
 
-                    {/* Full OMDB details */}
+                    {/* Full TMDB details */}
                     {result.imdbid && mediaDetails && !loadingDetails && (
                         <div className="search-result-media-details">
                             {mediaDetails.poster && mediaDetails.poster !== "N/A" && (
@@ -600,7 +600,7 @@ export default function MainContentModule() {
     const [searchError, setSearchError] = useState(null);
     const [hasSearched, setHasSearched] = useState(false);
     const [expandedIndex, setExpandedIndex] = useState(null);
-    
+
     // Downloads (shared between Library tab + watched tracking in Browse)
     const [downloads, setDownloads] = useState([]);
     const [downloadLoading, setDownloadLoading] = useState(false);
@@ -660,7 +660,7 @@ export default function MainContentModule() {
     // Create a new download
     const handleDownload = useCallback(async (title, magnetLink, imdbId) => {
         if (!title || !magnetLink) return;
-        
+
         try {
             setDownloadLoading(true);
             await downloadsApi.createDownload(title, magnetLink, imdbId);
@@ -767,7 +767,7 @@ export default function MainContentModule() {
                         {downloadError && (
                             <div className="library-error">{downloadError}</div>
                         )}
-                        
+
                         {downloads.length === 0 && !downloadError && (
                             <div className="library-empty">No downloads yet. Search and download a torrent above.</div>
                         )}

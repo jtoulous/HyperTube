@@ -26,7 +26,7 @@ services:
       - QBITTORRENT_URL=http://hypertube-torrent-client:8080
       - JACKETT_URL=http://hypertube-jackett:9117
       - JACKETT_API_KEY=hypertube_jackett_api_key
-      - OMDB_API_KEY=${OMDB_API_KEY:-}
+      - TMDB_API_KEY=${TMDB_API_KEY:-}
     command: ["postgres", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     depends_on:
       - database
