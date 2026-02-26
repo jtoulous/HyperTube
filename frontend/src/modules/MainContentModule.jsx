@@ -317,7 +317,7 @@ export default function MainContentModule() {
 
                         <div style={s.divider} />
                         <div style={s.section}>
-                            <div style={s.sectionLabel}>Period</div>
+                            <div style={s.sectionLabel}>Release Date</div>
                             <div style={s.periodList}>
                                 {BROWSE_PERIODS.map(p => (
                                     <button
