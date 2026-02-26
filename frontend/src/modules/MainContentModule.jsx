@@ -90,10 +90,7 @@ function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick }) {
 
 // ─── Browse View ──────────────────────────────────────────────────────────────
 
-function BrowseView({ watchedImdbIds, onDownload, isLogged, onCardClick }) {
-    const [genre,  setGenre]  = useState("");
-    const [period, setPeriod] = useState("all");
-    const [sortBy, setSortBy] = useState("seeders");
+function BrowseView({ genre, period, sortBy, watchedImdbIds, onDownload, isLogged, onCardClick }) {
     const [page,   setPage]   = useState(1);
     const [results,  setResults]  = useState([]);
     const [loading,  setLoading]  = useState(false);
@@ -172,44 +169,6 @@ function BrowseView({ watchedImdbIds, onDownload, isLogged, onCardClick }) {
 
     return (
         <div className="browse-view">
-            {/* Genre pills */}
-            <div className="browse-genre-pills">
-                {BROWSE_GENRES.map(g => (
-                    <button
-                        key={g || "all"}
-                        className={"genre-pill" + (genre === g ? " genre-pill-active" : "")}
-                        onClick={() => setGenre(g)}
-                    >
-                        {g || "All"}
-                    </button>
-                ))}
-            </div>
-
-            {/* Period + Sort row */}
-            <div className="browse-filters-row">
-                <div className="period-tabs">
-                    {BROWSE_PERIODS.map(p => (
-                        <button
-                            key={p.key}
-                            className={"period-tab" + (period === p.key ? " period-tab-active" : "")}
-                            onClick={() => setPeriod(p.key)}
-                        >
-                            {p.label}
-                        </button>
-                    ))}
-                </div>
-                <select
-                    className="browse-sort-select"
-                    value={sortBy}
-                    onChange={e => setSortBy(e.target.value)}
-                >
-                    {BROWSE_SORTS.map(s => (
-                        <option key={s.key} value={s.key}>{s.label}</option>
-                    ))}
-                </select>
-            </div>
-
-            {/* Movie grid */}
             {results.length === 0 && !loading && (
                 <div className="browse-empty">No results for these filters — try a different genre or period.</div>
             )}
@@ -596,7 +555,7 @@ function SearchResultRow({ result, isExpanded, onToggle, onDownload }) {
 
 
 export default function MainContentModule() {
-    const { isLogged } = GlobalState();
+    const { isLogged, sidebarOpen, setSidebarOpen } = GlobalState();
 
     const [currentTab, setCurrentTab] = useState("search");
     const [searchQuery, setSearchQuery] = useState("");
@@ -615,8 +574,13 @@ export default function MainContentModule() {
     const [torrentError,   setTorrentError]   = useState(null);
     const [expandedIndex,  setExpandedIndex]  = useState(null);
 
-    // Downloads
-    const [downloads,      setDownloads]      = useState([]);
+    // Browse filters (lifted from BrowseView for sidebar)
+    const [browseGenre, setBrowseGenre] = useState("");
+    const [browsePeriod, setBrowsePeriod] = useState("all");
+    const [browseSortBy, setBrowseSortBy] = useState("seeders");
+
+    // Downloads (shared between Library tab + watched tracking in Browse)
+    const [downloads, setDownloads] = useState([]);
     const [downloadLoading, setDownloadLoading] = useState(false);
     const [downloadError,  setDownloadError]  = useState(null);
 
@@ -631,6 +595,16 @@ export default function MainContentModule() {
     const handleTabClick = (tab) => {
         if (tab === "library" && !isLogged) return;
         setCurrentTab(tab);
+    };
+
+    const clearSearch = () => {
+        setSearchQuery("");
+        setTmdbResults([]);
+        setHasSearched(false);
+        setTmdbError(null);
+        setTorrentMode(false);
+        setTorrentResults([]);
+        setExpandedIndex(null);
     };
 
     // Phase 1: query TMDB → thumbnail grid
@@ -724,38 +698,104 @@ export default function MainContentModule() {
 
     return (
         <div className="main-content-container">
-            <div className="tab-selection-bar">
-                <div
-                    className={"tab-btn tab-btn-search" + (currentTab === "search" ? " tab-btn-active" : "")}
-                    onClick={() => handleTabClick("search")}
-                >
-                    Search
-                </div>
-                <div
-                    className={"tab-btn tab-btn-library" + (currentTab === "library" && isLogged ? " tab-btn-active" : "") + (!isLogged ? " tab-btn-disabled" : "")}
-                    onClick={() => handleTabClick("library")}
-                >
-                    Library
-                </div>
-            </div>
+            {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+            <aside className={"sidebar" + (sidebarOpen ? " sidebar-open" : " sidebar-closed")}>
+                <nav className="sidebar-nav">
+                    <button
+                        className={"sidebar-nav-btn" + (currentTab === "search" ? " sidebar-nav-btn-active" : "")}
+                        onClick={() => handleTabClick("search")}
+                    >
+                        🔍 Search
+                    </button>
+                    <button
+                        className={"sidebar-nav-btn" + (currentTab === "library" && isLogged ? " sidebar-nav-btn-active" : "") + (!isLogged ? " sidebar-nav-btn-disabled" : "")}
+                        onClick={() => handleTabClick("library")}
+                    >
+                        📚 Library
+                    </button>
+                </nav>
 
-            <div className="tab-content-area">
+                <div className="sidebar-divider" />
+
                 {currentTab === "search" && (
-                    <div className="search-tab">
-                        <div className="search-bar">
+                    <>
+                        <div className="sidebar-section">
+                            <div className="sidebar-section-label">Search</div>
                             <input
-                                className="search-bar-input"
+                                className="sidebar-search-input"
                                 type="text"
-                                placeholder="Search for a movie or series..."
+                                placeholder="Movie or series..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === "Enter") runNewSearch(); }}
                             />
-                            <button className="search-bar-btn" onClick={runNewSearch} disabled={tmdbLoading}>
+                            <button className="sidebar-search-btn" onClick={runNewSearch} disabled={tmdbLoading}>
                                 {tmdbLoading ? "Searching..." : "Search"}
                             </button>
+                            {hasSearched && (
+                                <button className="sidebar-clear-btn" onClick={clearSearch}>
+                                    ← Browse
+                                </button>
+                            )}
                         </div>
 
+                        {!hasSearched && (
+                            <>
+                                <div className="sidebar-divider" />
+                                <div className="sidebar-section">
+                                    <div className="sidebar-section-label">Genre</div>
+                                    <div className="sidebar-genres">
+                                        {BROWSE_GENRES.map(g => (
+                                            <button
+                                                key={g || "all"}
+                                                className={"sidebar-genre-btn" + (browseGenre === g ? " sidebar-genre-btn-active" : "")}
+                                                onClick={() => setBrowseGenre(g)}
+                                            >
+                                                {g || "All"}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="sidebar-divider" />
+                                <div className="sidebar-section">
+                                    <div className="sidebar-section-label">Period</div>
+                                    <div className="sidebar-period-list">
+                                        {BROWSE_PERIODS.map(p => (
+                                            <button
+                                                key={p.key}
+                                                className={"sidebar-period-btn" + (browsePeriod === p.key ? " sidebar-period-btn-active" : "")}
+                                                onClick={() => setBrowsePeriod(p.key)}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="sidebar-divider" />
+                                <div className="sidebar-section">
+                                    <div className="sidebar-section-label">Sort by</div>
+                                    <select
+                                        className="sidebar-sort-select"
+                                        value={browseSortBy}
+                                        onChange={e => setBrowseSortBy(e.target.value)}
+                                    >
+                                        {BROWSE_SORTS.map(s => (
+                                            <option key={s.key} value={s.key}>{s.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+                    </>
+                )}
+            </aside>
+
+
+            <div className="tab-content-area">
+                {currentTab === "search" && (
+                    <div className="search-tab">
                         <div className="search-list">
 
                             {/* ── Phase 2: torrent list for selected movie ── */}
@@ -827,6 +867,9 @@ export default function MainContentModule() {
                             {/* ── Browse view: shown when no search yet ── */}
                             {!torrentMode && !tmdbLoading && !hasSearched && (
                                 <BrowseView
+                                    genre={browseGenre}
+                                    period={browsePeriod}
+                                    sortBy={browseSortBy}
                                     watchedImdbIds={watchedImdbIds}
                                     onDownload={handleDownload}
                                     isLogged={isLogged}
@@ -844,7 +887,7 @@ export default function MainContentModule() {
                         )}
 
                         {downloads.length === 0 && !downloadError && (
-                            <div className="library-empty">No downloads yet. Search and download a torrent above.</div>
+                            <div className="library-empty">No downloads yet. Search and download a torrent to get started.</div>
                         )}
 
                         {downloads.length > 0 && (

@@ -4,10 +4,10 @@ import AuthModule from "./submodules/AuthModule";
 import ProfileModule from "./submodules/ProfileModule";
 
 import Icon from '@mdi/react';
-import { mdiHome, mdiAccount, mdiLogout, mdiLogin } from '@mdi/js';
+import { mdiMenu, mdiAccount, mdiLogout, mdiLogin } from '@mdi/js';
 
 export default function TopBarModule() {
-    const { isLogged, logout, username } = GlobalState();
+    const { isLogged, logout, username, sidebarOpen, setSidebarOpen } = GlobalState();
     const [authModuleVisible, setAuthModuleVisible] = useState(false);
     const [profileModuleVisible, setProfileModuleVisible] = useState(false);
     const authWrapperRef = useRef(null);
@@ -36,7 +36,7 @@ export default function TopBarModule() {
     return (
         <div style={styles.topBar}>
             <div style={styles.iconWrapper}>
-                <Icon path={mdiHome} size={1.5} />
+                <Icon path={mdiMenu} size={1.5} onClick={() => setSidebarOpen(!sidebarOpen)} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                 {isLogged ? (
@@ -68,10 +68,11 @@ const styles = {
         justifyContent: "space-between",
         alignItems: "center",
         padding: "1rem",
-        background: "#282c34",
+        background: "#0d1117",
         color: "#fff",
         fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         height: "60px",
+        borderBottom: "1px solid #21262d",
     },
     iconWrapper: {
         cursor: "pointer",

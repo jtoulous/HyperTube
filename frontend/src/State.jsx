@@ -8,6 +8,7 @@ export function State({ children }) {
     const [username, setUsername] = useState("");
 
     const [availableContentList, setAvailableContentList] = useState([])
+    const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
 
     const isLogged = !!token;
 
@@ -55,7 +56,8 @@ export function State({ children }) {
             isLogged,
             token, setToken,
             logout,
-            username, setUsername
+            username, setUsername,
+            sidebarOpen, setSidebarOpen
         }}>
             {children}
         </StateContext.Provider>
