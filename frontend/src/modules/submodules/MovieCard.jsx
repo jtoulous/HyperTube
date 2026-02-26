@@ -1,6 +1,15 @@
 import { useState } from "react";
 
-export default function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick }) {
+function formatEta(seconds) {
+    if (!seconds || seconds <= 0) return "";
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.ceil(seconds / 60)}min`;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.ceil((seconds % 3600) / 60);
+    return m > 0 ? `${h}h${m}m` : `${h}h`;
+}
+
+export default function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick, libraryMode }) {
     const [downloading, setDownloading] = useState(false);
     const [added, setAdded] = useState(false);
 
@@ -17,6 +26,10 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
     };
 
     const hasPoster = result.poster && result.poster !== "N/A";
+    const status = result.status;       // "downloading" | "completed" | "error" | "paused"  (library only)
+    const canWatch = result.can_watch;   // boolean (library only)
+    const progress = result.progress;    // 0-100 (library only)
+    const readyIn = result.watch_ready_in;
 
     return (
         <div
@@ -32,7 +45,38 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
                     ? <img src={result.poster} alt={result.title} loading="lazy" style={styles.posterImg} />
                     : <div style={styles.noPoster}><span>🎬</span></div>
                 }
+
+                {/* Status / badge overlays */}
                 {isWatched && <div style={styles.watchedBadge}>✓ Watched</div>}
+
+                {libraryMode && status === "completed" && canWatch && !isWatched && (
+                    <div style={styles.readyBadge}>▶ Available</div>
+                )}
+                {libraryMode && status === "downloading" && canWatch && (
+                    <div style={styles.canWatchBadge}>▶ Watch now</div>
+                )}
+                {libraryMode && status === "downloading" && !canWatch && (
+                    <div style={styles.downloadingBadge}>
+                        ⬇ {Math.round(progress || 0)}%
+                        {readyIn != null && readyIn > 0 && (
+                            <span style={styles.readyInText}> · {formatEta(readyIn)}</span>
+                        )}
+                    </div>
+                )}
+                {libraryMode && status === "paused" && (
+                    <div style={styles.pausedBadge}>⏸ Paused</div>
+                )}
+                {libraryMode && status === "error" && (
+                    <div style={styles.errorBadge}>✕ Error</div>
+                )}
+
+                {/* Progress bar overlay for downloading films */}
+                {libraryMode && status === "downloading" && (
+                    <div style={styles.progressBarBg}>
+                        <div style={{ ...styles.progressBarFill, width: `${Math.min(progress || 0, 100)}%` }} />
+                    </div>
+                )}
+
                 {result.imdb_rating && result.imdb_rating !== "N/A" && (
                     <div style={styles.ratingBadge}>★ {result.imdb_rating}</div>
                 )}
@@ -54,7 +98,7 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
                         ))}
                     </div>
                 )}
-                {isLogged && result.magneturl && (
+                {!libraryMode && isLogged && result.magneturl && (
                     <button
                         style={{
                             ...styles.dlBtn,
@@ -127,6 +171,88 @@ const styles = {
         borderRadius: 10,
         letterSpacing: "0.03em",
         backdropFilter: "blur(4px)",
+    },
+    readyBadge: {
+        position: "absolute",
+        top: 6,
+        left: 6,
+        background: "rgba(0, 123, 255, 0.88)",
+        color: "#fff",
+        fontSize: "0.62rem",
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 10,
+        letterSpacing: "0.03em",
+        backdropFilter: "blur(4px)",
+    },
+    canWatchBadge: {
+        position: "absolute",
+        top: 6,
+        left: 6,
+        background: "rgba(35, 134, 54, 0.88)",
+        color: "#fff",
+        fontSize: "0.62rem",
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 10,
+        letterSpacing: "0.03em",
+        backdropFilter: "blur(4px)",
+    },
+    downloadingBadge: {
+        position: "absolute",
+        top: 6,
+        left: 6,
+        background: "rgba(210, 153, 34, 0.88)",
+        color: "#fff",
+        fontSize: "0.62rem",
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 10,
+        letterSpacing: "0.03em",
+        backdropFilter: "blur(4px)",
+    },
+    readyInText: {
+        fontWeight: 500,
+        opacity: 0.85,
+    },
+    pausedBadge: {
+        position: "absolute",
+        top: 6,
+        left: 6,
+        background: "rgba(158, 106, 3, 0.88)",
+        color: "#fff",
+        fontSize: "0.62rem",
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 10,
+        letterSpacing: "0.03em",
+        backdropFilter: "blur(4px)",
+    },
+    errorBadge: {
+        position: "absolute",
+        top: 6,
+        left: 6,
+        background: "rgba(218, 54, 51, 0.88)",
+        color: "#fff",
+        fontSize: "0.62rem",
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 10,
+        letterSpacing: "0.03em",
+        backdropFilter: "blur(4px)",
+    },
+    progressBarBg: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 3,
+        background: "rgba(0, 0, 0, 0.5)",
+    },
+    progressBarFill: {
+        height: "100%",
+        background: "#007BFF",
+        transition: "width 1s ease",
     },
     ratingBadge: {
         position: "absolute",

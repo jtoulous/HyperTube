@@ -2,11 +2,26 @@ import { useState, useRef } from "react";
 import { searchApi } from "../../api/search";
 import { formatSize, formatDate } from "./utils";
 
-export default function SearchResultRow({ result, isExpanded, onToggle, onDownload }) {
+export default function SearchResultRow({ result, isExpanded, onToggle, onDownload, isLogged }) {
     const detailsRef = useRef(null);
     const [mediaDetails, setMediaDetails] = useState(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [detailsError, setDetailsError] = useState(null);
+    const [hoverBtn, setHoverBtn] = useState(null);
+    const [dlSuccess, setDlSuccess] = useState(false);
+    const [dlLoading, setDlLoading] = useState(false);
+
+    const handleDownloadClick = async (title, magneturl, imdbid) => {
+        if (dlLoading || dlSuccess) return;
+        setDlLoading(true);
+        try {
+            await onDownload(title, magneturl, imdbid);
+            setDlSuccess(true);
+            setTimeout(() => setDlSuccess(false), 3000);
+        } finally {
+            setDlLoading(false);
+        }
+    };
 
     const handleToggle = () => {
         if (!isExpanded && result.imdbid && !mediaDetails && !loadingDetails) {
@@ -81,13 +96,16 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Published</span><span style={styles.infoValue}>{formatDate(result.pub_date)}</span></div>
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Category</span><span style={styles.infoValue}>{result.category || "—"}</span></div>
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Source</span><span style={styles.infoValue}>{result.indexer || "—"}</span></div>
-                            {result.magneturl && (
+                            {isLogged && result.magneturl && (
                                 <button
-                                    style={styles.magnetBtn}
-                                    onClick={() => onDownload(result.title, result.magneturl, result.imdbid)}
+                                    style={{ ...styles.magnetBtn, ...(dlSuccess ? styles.magnetBtnSuccess : {}), ...(hoverBtn === "noImdb" && !dlSuccess ? styles.magnetBtnHover : {}), ...((dlLoading || dlSuccess) ? styles.magnetBtnDisabled : {}) }}
+                                    onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid)}
+                                    onMouseEnter={() => setHoverBtn("noImdb")}
+                                    onMouseLeave={() => setHoverBtn(null)}
+                                    disabled={dlLoading || dlSuccess}
                                     title="Download torrent"
                                 >
-                                    🧲 Download
+                                    {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : "🧲 Download"}
                                 </button>
                             )}
                         </div>
@@ -159,13 +177,16 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                                 <div style={styles.torrentSection}>
                                     <div style={styles.infoRow}><span style={styles.infoLabel}>Published</span><span style={styles.infoValue}>{formatDate(result.pub_date)}</span></div>
                                     <div style={styles.infoRow}><span style={styles.infoLabel}>Source</span><span style={styles.infoValue}>{result.indexer || "—"}</span></div>
-                                    {result.magneturl && (
+                                    {isLogged && result.magneturl && (
                                         <button
-                                            style={styles.magnetBtn}
-                                            onClick={() => onDownload(result.title, result.magneturl, result.imdbid)}
+                                            style={{ ...styles.magnetBtn, ...(dlSuccess ? styles.magnetBtnSuccess : {}), ...(hoverBtn === "imdb" && !dlSuccess ? styles.magnetBtnHover : {}), ...((dlLoading || dlSuccess) ? styles.magnetBtnDisabled : {}) }}
+                                            onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid)}
+                                            onMouseEnter={() => setHoverBtn("imdb")}
+                                            onMouseLeave={() => setHoverBtn(null)}
+                                            disabled={dlLoading || dlSuccess}
                                             title="Download torrent"
                                         >
-                                            🧲 Download
+                                            {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : "🧲 Download"}
                                         </button>
                                     )}
                                 </div>
@@ -308,6 +329,22 @@ const styles = {
         cursor: "pointer",
         width: "fit-content",
         outline: "none",
+        transition: "background 0.15s, border-color 0.15s, color 0.15s",
+    },
+    magnetBtnHover: {
+        background: "#007BFF",
+        borderColor: "#007BFF",
+        color: "#fff",
+    },
+    magnetBtnSuccess: {
+        background: "rgba(63, 185, 80, 0.12)",
+        borderColor: "rgba(63, 185, 80, 0.3)",
+        color: "#3fb950",
+        cursor: "default",
+    },
+    magnetBtnDisabled: {
+        opacity: 0.7,
+        cursor: "not-allowed",
     },
     detailsLoading: {
         display: "flex",

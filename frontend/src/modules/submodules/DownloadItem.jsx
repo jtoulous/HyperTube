@@ -27,7 +27,7 @@ const PCT_COLORS = {
     error:     { color: "#f85149" },
 };
 
-export default function DownloadItem({ download }) {
+export default function DownloadItem({ download, onMarkWatched }) {
     const [progress, setProgress] = useState(null);
     const pollingRef = useRef(!TERMINAL_STATUSES.has(download.status));
     const [playerFile, setPlayerFile] = useState(null);
@@ -77,6 +77,9 @@ export default function DownloadItem({ download }) {
             }
             setAllFiles(files);
             setPlayerFile(files[0]);
+            if (download.imdb_id && onMarkWatched) {
+                onMarkWatched(download.imdb_id);
+            }
         } catch (err) {
             console.error("Failed to load files:", err);
             alert("Could not load video files.");

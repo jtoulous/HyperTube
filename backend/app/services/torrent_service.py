@@ -79,6 +79,8 @@ class TorrentService:
         payload = {
             "urls": magnet_link,
             "savepath": save_path,
+            "sequentialDownload": "true",
+            "firstLastPiecePrio": "true",
         }
         if category:
             payload["category"] = category

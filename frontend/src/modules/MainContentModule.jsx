@@ -2,10 +2,11 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { GlobalState } from "../State";
 import { searchApi } from "../api/search";
 import { downloadsApi } from "../api/downloads";
+import { filmsApi } from "../api/films";
 import MovieCard from "./submodules/MovieCard";
 import BrowseView from "./submodules/BrowseView";
 import SearchResultRow from "./submodules/SearchResultRow";
-import DownloadItem from "./submodules/DownloadItem";
+import WatchModal from "./submodules/WatchModal";
 
 const BROWSE_GENRES = ["", "Action", "Comedy", "Drama", "Horror", "Thriller", "Sci-Fi", "Animation", "Romance", "Crime", "Adventure", "Documentary", "Family"];
 const BROWSE_PERIODS = [
@@ -56,59 +57,68 @@ export default function MainContentModule() {
     const [browsePeriod, setBrowsePeriod] = useState("all");
     const [browseSortBy, setBrowseSortBy] = useState("seeders");
 
-    const [downloads, setDownloads] = useState([]);
-    const [downloadLoading, setDownloadLoading] = useState(false);
-    const [downloadError,  setDownloadError]  = useState(null);
-
     const [libraryMovies, setLibraryMovies] = useState([]);
     const [libraryLoading, setLibraryLoading] = useState(false);
-    const [selectedLibraryMovie, setSelectedLibraryMovie] = useState(null);
 
-    const watchedImdbIds = useMemo(() => {
-        const ids = new Set();
-        downloads.forEach(dl => {
-            if (dl.imdb_id && dl.status === "completed") ids.add(dl.imdb_id);
-        });
-        return ids;
-    }, [downloads]);
+    const [watchedImdbIds, setWatchedImdbIds] = useState(new Set());
 
-    /*  Enrich downloads with TMDB metadata for library view  */
-    const enrichLibrary = useCallback(async () => {
-        if (!downloads.length) { setLibraryMovies([]); return; }
+    /* Player state for watching from library */
+    const [playerFile, setPlayerFile] = useState(null);
+    const [playerTitle, setPlayerTitle] = useState("");
+    const [playerAllFiles, setPlayerAllFiles] = useState([]);
+
+    /*  Load watched IDs from API  */
+    const loadWatchedIds = useCallback(async () => {
+        if (!isLogged) return;
+        try {
+            const res = await filmsApi.getWatchedIds();
+            setWatchedImdbIds(new Set(res.data || []));
+        } catch (err) {
+            console.error("Failed to load watched IDs:", err);
+        }
+    }, [isLogged]);
+
+    /*  Load ALL films from the server for library view  */
+    const loadFilms = useCallback(async () => {
         setLibraryLoading(true);
-        const groups = {};
-        downloads.forEach(dl => {
-            const key = dl.imdb_id || `__title_${dl.title}`;
-            if (!groups[key]) groups[key] = { imdb_id: dl.imdb_id, title: dl.title, downloads: [] };
-            groups[key].downloads.push(dl);
-        });
-        const entries = Object.values(groups);
-        const enriched = await Promise.all(entries.map(async (entry) => {
-            const bestStatus = entry.downloads.some(d => d.status === "completed") ? "completed"
-                : entry.downloads.some(d => d.status === "downloading") ? "downloading" : entry.downloads[0]?.status;
-            if (!entry.imdb_id) {
-                return { title: entry.title, imdbid: null, poster: null, year: null,
-                    imdb_rating: null, genre_tags: [], downloads: entry.downloads, dlStatus: bestStatus, dlDate: entry.downloads[0]?.created_at };
-            }
-            try {
-                const res = await searchApi.getMediaDetails(entry.imdb_id);
-                const d = res.data;
-                return { tmdb_id: d.tmdb_id, imdbid: d.imdb_id, title: d.title || entry.title,
-                    year: d.year, poster: d.poster, imdb_rating: d.imdb_rating,
-                    genre_tags: d.genre ? d.genre.split(", ") : [], downloads: entry.downloads,
-                    dlStatus: bestStatus, dlDate: entry.downloads[0]?.created_at };
-            } catch {
-                return { title: entry.title, imdbid: entry.imdb_id, poster: null, year: null,
-                    imdb_rating: null, genre_tags: [], downloads: entry.downloads, dlStatus: bestStatus, dlDate: entry.downloads[0]?.created_at };
-            }
-        }));
-        setLibraryMovies(enriched);
-        setLibraryLoading(false);
-    }, [downloads]);
+        try {
+            const res = await filmsApi.getFilms();
+            const films = (res.data || []).map(f => ({
+                imdbid: f.imdb_id,
+                tmdb_id: f.tmdb_id,
+                title: f.title,
+                poster: f.poster,
+                year: f.year,
+                imdb_rating: f.imdb_rating,
+                genre_tags: f.genre ? f.genre.split(", ") : [],
+                created_at: f.created_at,
+                /* download / watchability info */
+                status: f.status,
+                progress: f.progress,
+                download_speed: f.download_speed,
+                can_watch: f.can_watch,
+                watch_ready_in: f.watch_ready_in,
+                eta: f.eta,
+            }));
+            setLibraryMovies(films);
+        } catch (err) {
+            console.error("Failed to load films:", err);
+        } finally {
+            setLibraryLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        if (currentTab === "library" && isLogged && downloads.length > 0) enrichLibrary();
-    }, [currentTab, isLogged, downloads, enrichLibrary]);
+        if (isLogged) loadWatchedIds();
+    }, [isLogged, loadWatchedIds]);
+
+    useEffect(() => {
+        if (currentTab !== "library") return;
+        loadFilms();
+        /* Refresh every 5 s while on the library tab so progress stays live */
+        const iv = setInterval(loadFilms, 5000);
+        return () => clearInterval(iv);
+    }, [currentTab, loadFilms]);
 
     /*  Filtered / sorted library movies  */
     const filteredLibraryMovies = useMemo(() => {
@@ -120,7 +130,7 @@ export default function MainContentModule() {
             const now = Date.now();
             const deltas = { day: 86400000, week: 604800000, month: 2592000000 };
             const delta = deltas[browsePeriod];
-            if (delta) movies = movies.filter(m => m.dlDate && (now - new Date(m.dlDate).getTime()) <= delta);
+            if (delta) movies = movies.filter(m => m.created_at && (now - new Date(m.created_at).getTime()) <= delta);
         }
         if (browseSortBy === "rating") movies.sort((a, b) => (parseFloat(b.imdb_rating) || 0) - (parseFloat(a.imdb_rating) || 0));
         else if (browseSortBy === "year") movies.sort((a, b) => (b.year || "0").localeCompare(a.year || "0"));
@@ -129,9 +139,7 @@ export default function MainContentModule() {
     }, [libraryMovies, searchQuery, browseGenre, browseSortBy, browsePeriod]);
 
     const handleTabClick = (tab) => {
-        if (tab === "library" && !isLogged) return;
         setCurrentTab(tab);
-        setSelectedLibraryMovie(null);
     };
 
     const clearSearch = () => {
@@ -204,42 +212,45 @@ export default function MainContentModule() {
         setExpandedIndex(expandedIndex === idx ? null : idx);
     };
 
-    const loadDownloads = useCallback(async () => {
-        if (!isLogged) return;
+    const handleDownload = useCallback(async (title, magnetLink, imdbId) => {
+        if (!title || !magnetLink) return;
         try {
-            const res = await downloadsApi.getDownloads();
-            setDownloads(res.data || []);
-            setDownloadError(null);
+            await downloadsApi.createDownload(title, magnetLink, imdbId);
         } catch (err) {
-            console.error("Load downloads error:", err);
-            setDownloadError("Failed to load downloads: " + (err?.response?.data?.detail || err?.message));
+            console.error("Download error:", err?.response?.data?.detail || err?.message);
+        }
+    }, []);
+
+    const handleMarkWatched = useCallback(async (imdbId) => {
+        if (!isLogged || !imdbId) return;
+        try {
+            await filmsApi.markWatched(imdbId);
+            setWatchedImdbIds(prev => new Set([...prev, imdbId]));
+        } catch (err) {
+            console.error("Failed to mark watched:", err);
         }
     }, [isLogged]);
 
-    const handleDownload = useCallback(async (title, magnetLink, imdbId) => {
-        if (!title || !magnetLink) return;
-
+    /** Open the player for a film from the library (uses the global /films/:imdb_id/files endpoint) */
+    const handleWatchFilm = useCallback(async (movie) => {
+        if (!movie?.imdbid) return;
         try {
-            setDownloadLoading(true);
-            await downloadsApi.createDownload(title, magnetLink, imdbId);
-            await loadDownloads();
-            setDownloadError(null);
+            const res = await filmsApi.getFilmFiles(movie.imdbid);
+            const files = res.data?.files || [];
+            if (files.length === 0) {
+                alert("No playable video files found yet.");
+                return;
+            }
+            setPlayerAllFiles(files);
+            setPlayerFile(files[0]);
+            setPlayerTitle(movie.title || "");
+            // Mark watched
+            handleMarkWatched(movie.imdbid);
         } catch (err) {
-            const msg = err?.response?.data?.detail || "Failed to start download";
-            setDownloadError(msg);
-            console.error("Download error:", msg);
-        } finally {
-            setDownloadLoading(false);
+            console.error("Failed to load film files:", err);
+            alert("Could not load video files.");
         }
-    }, [loadDownloads]);
-
-    useEffect(() => {
-        if (isLogged) loadDownloads();
-    }, [isLogged, loadDownloads]);
-
-    useEffect(() => {
-        if (currentTab === "library" && isLogged) loadDownloads();
-    }, [currentTab, isLogged, loadDownloads]);
+    }, [handleMarkWatched]);
 
     /*  Computed sidebar style  */
     const sidebarStyle = isMobile
@@ -260,8 +271,7 @@ export default function MainContentModule() {
                     <button
                         style={{
                             ...s.navBtn,
-                            ...(currentTab === "library" && isLogged ? s.navBtnActive : {}),
-                            ...(!isLogged ? s.navBtnDisabled : {}),
+                            ...(currentTab === "library" ? s.navBtnActive : {}),
                         }}
                         onClick={() => handleTabClick("library")}
                     >
@@ -384,6 +394,7 @@ export default function MainContentModule() {
                                                     isExpanded={expandedIndex === idx}
                                                     onToggle={() => toggleExpand(idx)}
                                                     onDownload={handleDownload}
+                                                    isLogged={isLogged}
                                                 />
                                             ))}
                                             {torrentVisible < torrentResults.length && (
@@ -442,45 +453,22 @@ export default function MainContentModule() {
                     </div>
                 )}
 
-                {isLogged && currentTab === "library" && (
+                {currentTab === "library" && (
                     <div style={s.libraryTab}>
-                        {downloadError && (
-                            <div style={s.libraryError}>{downloadError}</div>
-                        )}
-
-                        {/*  Drill-down: downloads for a specific movie  */}
-                        {selectedLibraryMovie && (
-                            <div style={s.torrentContainer}>
-                                <div style={s.torrentHeader}>
-                                    <button style={s.backBtn} onClick={() => setSelectedLibraryMovie(null)}>
-                                        ← Back to library
-                                    </button>
-                                    <span style={s.torrentTitle}>
-                                        Downloads : <strong style={{ color: "#e6edf3" }}>{selectedLibraryMovie.title}</strong>
-                                    </span>
-                                </div>
-                                <div style={s.libraryDownloads}>
-                                    {selectedLibraryMovie.downloads.map(dl => (
-                                        <DownloadItem key={dl.id} download={dl} />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         {/*  Library movie grid  */}
-                        {!selectedLibraryMovie && libraryLoading && (
+                        {libraryLoading && filteredLibraryMovies.length === 0 && (
                             <div style={s.searchListStatus}>
                                 <div style={s.searchSpinner} />
                                 <span>Loading library...</span>
                             </div>
                         )}
-                        {!selectedLibraryMovie && !libraryLoading && filteredLibraryMovies.length === 0 && downloads.length === 0 && !downloadError && (
-                            <div style={s.libraryEmpty}>No downloads yet. Browse and download a torrent to get started.</div>
+                        {!libraryLoading && filteredLibraryMovies.length === 0 && libraryMovies.length === 0 && (
+                            <div style={s.libraryEmpty}>No films on the server yet. Browse and download a torrent to get started.</div>
                         )}
-                        {!selectedLibraryMovie && !libraryLoading && filteredLibraryMovies.length === 0 && downloads.length > 0 && (
+                        {!libraryLoading && filteredLibraryMovies.length === 0 && libraryMovies.length > 0 && (
                             <div style={s.libraryEmpty}>No movies match your filters.</div>
                         )}
-                        {!selectedLibraryMovie && !libraryLoading && filteredLibraryMovies.length > 0 && (
+                        {filteredLibraryMovies.length > 0 && (
                             <>
                                 <div style={s.libraryCount}>
                                     {filteredLibraryMovies.length} movie{filteredLibraryMovies.length > 1 ? "s" : ""}
@@ -491,9 +479,9 @@ export default function MainContentModule() {
                                             key={movie.imdbid || movie.title || idx}
                                             result={movie}
                                             isWatched={!!(movie.imdbid && watchedImdbIds.has(movie.imdbid))}
-                                            onDownload={handleDownload}
                                             isLogged={isLogged}
-                                            onCardClick={() => setSelectedLibraryMovie(movie)}
+                                            onCardClick={movie.can_watch ? () => handleWatchFilm(movie) : undefined}
+                                            libraryMode
                                         />
                                     ))}
                                 </div>
@@ -502,6 +490,17 @@ export default function MainContentModule() {
                     </div>
                 )}
             </div>
+
+            {/* Player modal (opened from library) */}
+            {playerFile && (
+                <WatchModal
+                    file={playerFile}
+                    title={playerTitle}
+                    allFiles={playerAllFiles}
+                    onFileChange={setPlayerFile}
+                    onClose={() => setPlayerFile(null)}
+                />
+            )}
         </div>
     );
 }
@@ -850,14 +849,6 @@ const s = {
         gap: 18,
         flex: 1,
     },
-    libraryError: {
-        color: "#f85149",
-        fontSize: "0.88rem",
-        background: "rgba(248, 81, 73, 0.1)",
-        borderLeft: "3px solid #f85149",
-        padding: "10px 14px",
-        borderRadius: 6,
-    },
     libraryEmpty: {
         minHeight: 120,
         display: "flex",
@@ -869,11 +860,6 @@ const s = {
         background: "#0d1117",
         border: "1px solid #21262d",
         padding: 28,
-    },
-    libraryDownloads: {
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
     },
     libraryCount: {
         fontSize: "0.82rem",

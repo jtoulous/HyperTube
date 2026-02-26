@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from app.models.download import Download, DownloadStatus
 from app.services.torrent_service import TorrentService
+from app.services.film_service import FilmService
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class DownloadService:
         """
         Add a torrent to qBittorrent and create a Download record.
         If the user already has a download with this hash, return it.
+        Also registers the film in the global catalogue immediately.
         """
         # Extract torrent hash from magnet link
         torrent_hash = self._get_hash_from_magnet(magnet_link)
@@ -66,6 +68,14 @@ class DownloadService:
         await session.flush()
 
         logger.info(f"Download created: {download.id} — {title} — hash:{torrent_hash}")
+
+        # Register in the global films catalogue immediately (with TMDB metadata)
+        if imdb_id:
+            try:
+                await self._register_film(session, imdb_id, title, torrent_hash)
+            except Exception as e:
+                logger.warning(f"Failed to register film {imdb_id} at download start: {e}")
+
         return download
 
     def _get_hash_from_magnet(self, magnet_link: str) -> str | None:
@@ -102,6 +112,7 @@ class DownloadService:
     async def update_progress(self, session: AsyncSession, download: Download) -> Download:
         """
         Fetch current torrent status from qBittorrent and update the Download record.
+        Also syncs the global films catalogue with live progress data.
         """
         async with TorrentService() as ts:
             progress = await ts.get_progress(download.torrent_hash)
@@ -143,4 +154,56 @@ class DownloadService:
                 else:
                     download.progress = progress.get("progress", 0.0) * 100.0
 
+                # Sync global films catalogue with live progress
+                if download.imdb_id:
+                    try:
+                        await FilmService.update_film_progress(
+                            session,
+                            imdb_id=download.imdb_id,
+                            status=download.status.value,
+                            progress=download.progress,
+                            download_speed=progress.get("dlspeed", 0),
+                            total_bytes=download.total_bytes,
+                            downloaded_bytes=download.downloaded_bytes,
+                            eta=progress.get("eta"),
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to sync film progress for {download.imdb_id}: {e}")
+
         return download
+
+    async def _register_film(self, session: AsyncSession, imdb_id: str, fallback_title: str, torrent_hash: str | None = None):
+        """Fetch TMDB metadata and upsert into the global films catalogue."""
+        from app.services.tmdb_service import TmdbService
+        tmdb = TmdbService()
+        details = await tmdb.get_by_imdb(imdb_id)
+
+        # Parse duration from TMDB runtime string (e.g. "120 min" → 7200 seconds)
+        duration_sec = None
+        if details and details.get("runtime"):
+            try:
+                minutes = int(str(details["runtime"]).replace(" min", "").strip())
+                duration_sec = minutes * 60
+            except (ValueError, AttributeError):
+                pass
+
+        if details:
+            await FilmService.upsert_film(
+                session,
+                imdb_id=imdb_id,
+                title=details.get("title") or fallback_title,
+                poster=details.get("poster"),
+                year=details.get("year"),
+                imdb_rating=details.get("imdb_rating"),
+                genre=details.get("genre"),
+                tmdb_id=details.get("tmdb_id"),
+                duration=duration_sec,
+                torrent_hash=torrent_hash,
+            )
+        else:
+            await FilmService.upsert_film(
+                session,
+                imdb_id=imdb_id,
+                title=fallback_title,
+                torrent_hash=torrent_hash,
+            )

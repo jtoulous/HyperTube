@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import engine, Base
 from app.routes import router as api_router
-from app.models import User, Download  # Import models to register them with Base
+from app.models import User, Download, Film, WatchedFilm  # Import models to register them with Base
 
 
 @asynccontextmanager
@@ -38,6 +38,45 @@ async def lifespan(app: FastAPI):
                     WHERE conname = 'uq_user_torrent_hash' AND conrelid = 'downloads'::regclass
                 ) THEN
                     ALTER TABLE downloads ADD CONSTRAINT uq_user_torrent_hash UNIQUE (user_id, torrent_hash);
+                END IF;
+            END $$;
+        """))
+
+        # Migrate available_films → films (rename + add new columns)
+        await conn.execute(__import__("sqlalchemy").text("""
+            DO $$
+            BEGIN
+                -- Rename table if old name still exists
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'available_films')
+                   AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'films') THEN
+                    ALTER TABLE available_films RENAME TO films;
+                END IF;
+                -- Add new columns to films if they don't exist yet
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'films') THEN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='status') THEN
+                        ALTER TABLE films ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'completed';
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='progress') THEN
+                        ALTER TABLE films ADD COLUMN progress FLOAT NOT NULL DEFAULT 100;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='download_speed') THEN
+                        ALTER TABLE films ADD COLUMN download_speed BIGINT NOT NULL DEFAULT 0;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='total_bytes') THEN
+                        ALTER TABLE films ADD COLUMN total_bytes BIGINT NOT NULL DEFAULT 0;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='downloaded_bytes') THEN
+                        ALTER TABLE films ADD COLUMN downloaded_bytes BIGINT NOT NULL DEFAULT 0;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='duration') THEN
+                        ALTER TABLE films ADD COLUMN duration INTEGER;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='eta') THEN
+                        ALTER TABLE films ADD COLUMN eta INTEGER;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='films' AND column_name='torrent_hash') THEN
+                        ALTER TABLE films ADD COLUMN torrent_hash VARCHAR(64);
+                    END IF;
                 END IF;
             END $$;
         """))
