@@ -39,7 +39,7 @@ class OmdbService:
         logger.info(f"OMDB request: {imdb_id} (key={'yes' if api_key else 'MISSING'})")
 
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=5) as client:
                 resp = await client.get(OMDB_BASE, params=params)
                 logger.info(f"OMDB response status: {resp.status_code}")
                 resp.raise_for_status()

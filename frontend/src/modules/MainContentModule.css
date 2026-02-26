@@ -942,3 +942,361 @@
 @keyframes vpSpin {
     to { transform: rotate(360deg); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Browse View
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.browse-view {
+    padding: 0 0 40px;
+}
+
+/* Genre pills */
+.browse-genre-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.genre-pill {
+    padding: 5px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #bbb;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.genre-pill:hover {
+    border-color: rgba(255, 127, 50, 0.5);
+    color: #ff7f32;
+    background: rgba(255, 127, 50, 0.08);
+}
+
+.genre-pill-active {
+    background: linear-gradient(135deg, #ff7f32, #e05a00);
+    border-color: #ff7f32;
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(255, 127, 50, 0.35);
+}
+
+.genre-pill-active:hover {
+    color: #fff;
+    opacity: 0.9;
+}
+
+/* Filters row */
+.browse-filters-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+/* Period tabs */
+.period-tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.period-tab {
+    padding: 5px 14px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #999;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.period-tab:hover {
+    color: #e0e0e0;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.period-tab-active {
+    background: rgba(255, 127, 50, 0.15);
+    color: #ff7f32;
+    font-weight: 600;
+}
+
+/* Sort select */
+.browse-sort-select {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #ccc;
+    font-size: 0.8rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.browse-sort-select:hover,
+.browse-sort-select:focus {
+    border-color: rgba(255, 127, 50, 0.4);
+    color: #e0e0e0;
+}
+
+.browse-sort-select option {
+    background: #1a1a2e;
+    color: #e0e0e0;
+}
+
+/* Movie grid */
+.movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+}
+
+/* Movie card */
+.movie-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    cursor: default;
+    display: flex;
+    flex-direction: column;
+}
+
+.movie-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    border-color: rgba(255, 127, 50, 0.25);
+}
+
+.movie-card-seen {
+    border-color: rgba(60, 200, 100, 0.2);
+}
+
+/* Poster */
+.movie-card-poster {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    background: #111;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.movie-card-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.movie-card:hover .movie-card-poster img {
+    transform: scale(1.04);
+}
+
+.movie-card-no-poster {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+/* Watched badge */
+.movie-card-watched-badge {
+    position: absolute;
+    top: 7px;
+    left: 7px;
+    background: rgba(40, 180, 90, 0.88);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+    backdrop-filter: blur(4px);
+}
+
+/* IMDb rating badge */
+.movie-card-rating-badge {
+    position: absolute;
+    bottom: 7px;
+    right: 7px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #ffc107;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+}
+
+/* Card body */
+.movie-card-body {
+    padding: 10px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.movie-card-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #e0e0e0;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.movie-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.movie-card-year {
+    color: #888;
+    font-size: 0.74rem;
+}
+
+.movie-card-seeders {
+    color: #4caf80;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+/* Genre tags on card */
+.movie-card-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.movie-card-genre-tag {
+    background: rgba(255, 127, 50, 0.1);
+    border: 1px solid rgba(255, 127, 50, 0.2);
+    color: #ff9f62;
+    font-size: 0.65rem;
+    padding: 1px 7px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+/* Download button on card */
+.movie-card-dl-btn {
+    margin-top: auto;
+    padding: 5px 10px;
+    width: 100%;
+    border: none;
+    border-radius: 7px;
+    background: rgba(255, 127, 50, 0.12);
+    color: #ff7f32;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.movie-card-dl-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff7f32, #e05a00);
+    color: #fff;
+}
+
+.movie-card-dl-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.movie-card-dl-btn-done {
+    background: rgba(40, 180, 90, 0.12);
+    color: #3cb872;
+}
+
+.movie-card-dl-btn-done:hover:not(:disabled) {
+    background: rgba(40, 180, 90, 0.2);
+    color: #3cb872;
+}
+
+.movie-card-dl-spinner {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border: 2px solid rgba(255, 127, 50, 0.3);
+    border-top-color: #ff7f32;
+    border-radius: 50%;
+    animation: vpSpin 0.7s linear infinite;
+}
+
+/* Browse states */
+.browse-empty {
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+    padding: 40px 20px;
+}
+
+.browse-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px 0;
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.browse-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 127, 50, 0.2);
+    border-top-color: #ff7f32;
+    border-radius: 50%;
+    animation: vpSpin 0.8s linear infinite;
+}
+
+.browse-sentinel {
+    height: 1px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .movie-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 10px;
+    }
+
+    .browse-filters-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .period-tabs {
+        width: 100%;
+        overflow-x: auto;
+    }
+}

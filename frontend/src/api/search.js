@@ -4,4 +4,6 @@ export const searchApi = {
     search: (query) => api.get("/search", { params: { query } }),
 
     getMediaDetails: (imdbId) => api.get(`/search/media/${imdbId}`),
+
+    browseMedia: (params) => api.get("/search/browse", { params }),
 };

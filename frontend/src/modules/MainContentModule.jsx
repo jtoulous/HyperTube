@@ -1,9 +1,237 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { GlobalState } from "../State";
 import { searchApi } from "../api/search";
 import { downloadsApi } from "../api/downloads";
 import PlayerModule from "./submodules/PlayerModule";
 import "./MainContentModule.css";
+
+const BROWSE_GENRES = ["", "Action", "Comedy", "Drama", "Horror", "Thriller", "Sci-Fi", "Animation", "Romance", "Crime", "Adventure", "Documentary", "Family"];
+const BROWSE_PERIODS = [
+    { key: "all",   label: "All Time" },
+    { key: "month", label: "This Month" },
+    { key: "week",  label: "This Week" },
+    { key: "day",   label: "Today" },
+];
+const BROWSE_SORTS = [
+    { key: "seeders", label: "Most Seeded" },
+    { key: "rating",  label: "Top Rated" },
+    { key: "year",    label: "Newest" },
+    { key: "name",    label: "A-Z" },
+];
+
+// ─── Movie Card ───────────────────────────────────────────────────────────────
+
+function MovieCard({ result, isWatched, onDownload, isLogged }) {
+    const [downloading, setDownloading] = useState(false);
+    const [added, setAdded] = useState(false);
+
+    const handleDownload = async () => {
+        if (!result.magneturl || downloading || added) return;
+        setDownloading(true);
+        try {
+            await onDownload(result.title, result.magneturl, result.imdbid);
+            setAdded(true);
+        } finally {
+            setDownloading(false);
+        }
+    };
+
+    const hasPoster = result.poster && result.poster !== "N/A";
+
+    return (
+        <div className={"movie-card" + (isWatched ? " movie-card-seen" : "")}>
+            <div className="movie-card-poster">
+                {hasPoster
+                    ? <img src={result.poster} alt={result.title} loading="lazy" />
+                    : <div className="movie-card-no-poster"><span>🎬</span></div>
+                }
+                {isWatched && <div className="movie-card-watched-badge">✓ Watched</div>}
+                {result.imdb_rating && result.imdb_rating !== "N/A" && (
+                    <div className="movie-card-rating-badge">★ {result.imdb_rating}</div>
+                )}
+            </div>
+            <div className="movie-card-body">
+                <div className="movie-card-title" title={result.title}>{result.title}</div>
+                <div className="movie-card-meta">
+                    {result.year && result.year !== "N/A" && (
+                        <span className="movie-card-year">{String(result.year).slice(0, 4)}</span>
+                    )}
+                    {result.seeders > 0 && (
+                        <span className="movie-card-seeders">▲ {result.seeders}</span>
+                    )}
+                </div>
+                {result.genre_tags && result.genre_tags.length > 0 && (
+                    <div className="movie-card-genres">
+                        {result.genre_tags.slice(0, 2).map(g => (
+                            <span key={g} className="movie-card-genre-tag">{g}</span>
+                        ))}
+                    </div>
+                )}
+                {isLogged && result.magneturl && (
+                    <button
+                        className={"movie-card-dl-btn" + (added ? " movie-card-dl-btn-done" : "")}
+                        onClick={handleDownload}
+                        disabled={downloading || added}
+                    >
+                        {downloading
+                            ? <span className="movie-card-dl-spinner" />
+                            : added ? "✓ Added" : "⬇ Download"
+                        }
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Browse View ──────────────────────────────────────────────────────────────
+
+function BrowseView({ watchedImdbIds, onDownload, isLogged }) {
+    const [genre,  setGenre]  = useState("");
+    const [period, setPeriod] = useState("all");
+    const [sortBy, setSortBy] = useState("seeders");
+    const [page,   setPage]   = useState(1);
+    const [results,  setResults]  = useState([]);
+    const [loading,  setLoading]  = useState(false);
+    const [hasMore,  setHasMore]  = useState(true);
+    const [initialLoaded, setInitialLoaded] = useState(false);
+
+    // Stable refs to avoid stale closures in observer
+    const loadingRef = useRef(false);
+    const hasMoreRef = useRef(true);
+    const pageRef    = useRef(1);
+    const filtersRef = useRef({ genre, period, sortBy });
+    filtersRef.current = { genre, period, sortBy };
+
+    const sentinelRef = useRef(null);
+    const observerRef = useRef(null);
+
+    const fetchPage = useCallback(async (pageNum, append) => {
+        if (loadingRef.current) return;
+        loadingRef.current = true;
+        setLoading(true);
+        const { genre: g, period: p, sortBy: s } = filtersRef.current;
+        try {
+            const res = await searchApi.browseMedia({
+                genre:   g,
+                period:  p,
+                sort_by: s,
+                page:    pageNum,
+                limit:   20,
+            });
+            const data = res.data;
+            setResults(prev => append ? [...prev, ...data.results] : data.results);
+            hasMoreRef.current = data.has_more;
+            pageRef.current = pageNum;
+            setHasMore(data.has_more);
+            setPage(pageNum);
+        } catch (err) {
+            console.error("Browse error:", err);
+        } finally {
+            loadingRef.current = false;
+            setLoading(false);
+            if (!append) setInitialLoaded(true);
+        }
+    }, []);
+
+    // Re-fetch from page 1 when filters change
+    useEffect(() => {
+        setInitialLoaded(false);
+        setPage(1);
+        setResults([]);
+        hasMoreRef.current = true;
+        setHasMore(true);
+        pageRef.current = 1;
+        fetchPage(1, false);
+    }, [genre, period, sortBy, fetchPage]);
+
+    // Attach IntersectionObserver AFTER initial load completes
+    useEffect(() => {
+        if (!initialLoaded) return;
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+
+        // Disconnect any previous observer
+        observerRef.current?.disconnect();
+
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting && !loadingRef.current && hasMoreRef.current) {
+                fetchPage(pageRef.current + 1, true);
+            }
+        }, { rootMargin: "200px" });
+
+        observer.observe(sentinel);
+        observerRef.current = observer;
+
+        return () => observer.disconnect();
+    }, [initialLoaded, fetchPage]);
+
+    return (
+        <div className="browse-view">
+            {/* Genre pills */}
+            <div className="browse-genre-pills">
+                {BROWSE_GENRES.map(g => (
+                    <button
+                        key={g || "all"}
+                        className={"genre-pill" + (genre === g ? " genre-pill-active" : "")}
+                        onClick={() => setGenre(g)}
+                    >
+                        {g || "All"}
+                    </button>
+                ))}
+            </div>
+
+            {/* Period + Sort row */}
+            <div className="browse-filters-row">
+                <div className="period-tabs">
+                    {BROWSE_PERIODS.map(p => (
+                        <button
+                            key={p.key}
+                            className={"period-tab" + (period === p.key ? " period-tab-active" : "")}
+                            onClick={() => setPeriod(p.key)}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+                <select
+                    className="browse-sort-select"
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
+                >
+                    {BROWSE_SORTS.map(s => (
+                        <option key={s.key} value={s.key}>{s.label}</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Movie grid */}
+            {results.length === 0 && !loading && (
+                <div className="browse-empty">No results for these filters — try a different genre or period.</div>
+            )}
+            <div className="movie-grid">
+                {results.map((result, idx) => (
+                    <MovieCard
+                        key={result.imdbid || idx}
+                        result={result}
+                        isWatched={!!(result.imdbid && watchedImdbIds.has(result.imdbid))}
+                        onDownload={onDownload}
+                        isLogged={isLogged}
+                    />
+                ))}
+            </div>
+
+            {loading && (
+                <div className="browse-loading">
+                    <div className="browse-spinner" />
+                    <span>Loading...</span>
+                </div>
+            )}
+
+            <div ref={sentinelRef} className="browse-sentinel" />
+        </div>
+    );
+}
 
 function formatSize(bytes) {
     if (!bytes || bytes === 0) return "—";
@@ -373,10 +601,19 @@ export default function MainContentModule() {
     const [hasSearched, setHasSearched] = useState(false);
     const [expandedIndex, setExpandedIndex] = useState(null);
     
-    // Downloads / Library
+    // Downloads (shared between Library tab + watched tracking in Browse)
     const [downloads, setDownloads] = useState([]);
     const [downloadLoading, setDownloadLoading] = useState(false);
     const [downloadError, setDownloadError] = useState(null);
+
+    // Set of imdbids the user has already watched/downloaded (completed)
+    const watchedImdbIds = useMemo(() => {
+        const ids = new Set();
+        downloads.forEach(dl => {
+            if (dl.imdb_id && dl.status === "completed") ids.add(dl.imdb_id);
+        });
+        return ids;
+    }, [downloads]);
 
     const handleTabClick = (tab) => {
         if (tab === "library" && !isLogged) return;
@@ -407,7 +644,7 @@ export default function MainContentModule() {
         setExpandedIndex(expandedIndex === idx ? null : idx);
     };
 
-    // Load downloads from Library
+    // Load downloads (used both for Library tab and for watched tracking in Browse)
     const loadDownloads = useCallback(async () => {
         if (!isLogged) return;
         try {
@@ -427,7 +664,6 @@ export default function MainContentModule() {
         try {
             setDownloadLoading(true);
             await downloadsApi.createDownload(title, magnetLink, imdbId);
-            // Reload downloads list
             await loadDownloads();
             setDownloadError(null);
         } catch (err) {
@@ -439,11 +675,14 @@ export default function MainContentModule() {
         }
     }, [loadDownloads]);
 
-    // Load downloads when Library tab is opened
+    // Load downloads as soon as the user is logged in (needed for watched badges)
     useEffect(() => {
-        if (currentTab === "library" && isLogged) {
-            loadDownloads();
-        }
+        if (isLogged) loadDownloads();
+    }, [isLogged, loadDownloads]);
+
+    // Refresh downloads list when Library tab is opened
+    useEffect(() => {
+        if (currentTab === "library" && isLogged) loadDownloads();
     }, [currentTab, isLogged, loadDownloads]);
 
     return (
@@ -496,8 +735,13 @@ export default function MainContentModule() {
                                 <div className="search-list-status">No results found.</div>
                             )}
 
-                            {!searchLoading && !searchError && !hasSearched && (
-                                <div className="search-list-status">Search for movies or series above.</div>
+                            {/* Browse view: shown when no search has been submitted */}
+                            {!searchLoading && !hasSearched && (
+                                <BrowseView
+                                    watchedImdbIds={watchedImdbIds}
+                                    onDownload={handleDownload}
+                                    isLogged={isLogged}
+                                />
                             )}
 
                             {!searchLoading && !searchError && searchResults.length > 0 && (
