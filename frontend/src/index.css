@@ -33,6 +33,14 @@ a:hover {
     text-decoration: underline;
 }
 
+@media (max-width: 768px) {
+    .top-bar {
+        position: sticky;
+        top: 0;
+        z-index: 200;
+    }
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }

@@ -34,7 +34,7 @@ export default function TopBarModule() {
     }, [authModuleVisible]);
 
     return (
-        <div style={styles.topBar}>
+        <div className="top-bar" style={styles.topBar}>
             <div style={styles.iconWrapper}>
                 <Icon path={mdiMenu} size={1.5} onClick={() => setSidebarOpen(!sidebarOpen)} />
             </div>
