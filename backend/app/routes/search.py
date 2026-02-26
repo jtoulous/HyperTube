@@ -42,10 +42,17 @@ _TMDB_SORT_MAP: dict[str, str] = {
 async def search_torrents(
     query: str = Query(..., min_length=1),
     categories: str = Query(""),
+    tmdb_id: int = Query(0, description="Optional TMDB ID to prioritize matching torrents"),
 ):
     """Search Jackett for torrents matching the given title."""
     results = await jackett.search(query, categories)
     deduped = _deduplicate_for_search(results)
+
+    # If a tmdb_id was provided, resolve it to an IMDb ID and sort by relevance
+    if tmdb_id:
+        target_imdbid = await _resolve_imdbid(tmdb_id)
+        deduped = _sort_by_relevance(deduped, query, target_imdbid)
+
     return {"results": deduped, "count": len(deduped)}
 
 
@@ -106,6 +113,25 @@ async def browse_media(
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+async def _resolve_imdbid(tmdb_id: int) -> str | None:
+    """Resolve a TMDB movie ID to an IMDb ID via /movie/{id}/external_ids."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            resp = await tmdb._get(client, f"https://api.themoviedb.org/3/movie/{tmdb_id}/external_ids")
+            data = resp.json()
+            imdb_id = data.get("imdb_id")
+            if imdb_id:
+                return imdb_id
+            # Try TV show
+            resp = await tmdb._get(client, f"https://api.themoviedb.org/3/tv/{tmdb_id}/external_ids")
+            data = resp.json()
+            return data.get("imdb_id")
+    except Exception as e:
+        logger.warning(f"Could not resolve TMDB {tmdb_id} to IMDb: {e}")
+        return None
+
+
 def _deduplicate_for_search(results: list) -> list:
     """Keep the best-seeded torrent per imdbid; preserve non-imdbid entries."""
     best: dict[str, dict] = {}
@@ -118,6 +144,51 @@ def _deduplicate_for_search(results: list) -> list:
         else:
             no_imdb.append(r)
     return list(best.values()) + no_imdb
+
+
+import re as _re
+
+def _normalize_title(t: str) -> str:
+    """Lowercase, strip year/quality tags, punctuation → just words."""
+    t = t.lower()
+    # Remove everything after common quality/codec markers
+    t = _re.split(r'\b(1080p|720p|2160p|4k|uhd|bluray|brrip|bdrip|web-?dl|webrip|hdtv|remux|hevc|x264|x265|h\.?264|h\.?265|aac|dts|ac3|multi|repack)\b', t)[0]
+    # Remove year in parentheses or standalone 4-digit year
+    t = _re.sub(r'[\(\[]?\d{4}[\)\]]?', '', t)
+    # Keep only alphanumeric and spaces
+    t = _re.sub(r'[^a-z0-9\s]', ' ', t)
+    return ' '.join(t.split()).strip()
+
+
+def _title_match_score(torrent_title: str, search_query: str) -> float:
+    """
+    Score 0.0-1.0 how well a torrent title matches the expected movie title.
+    1.0 = all words of the query appear in the torrent title.
+    """
+    normalized = _normalize_title(torrent_title)
+    query_words = _normalize_title(search_query).split()
+    if not query_words:
+        return 0.0
+    matched = sum(1 for w in query_words if w in normalized)
+    return matched / len(query_words)
+
+
+def _sort_by_relevance(results: list, query: str, target_imdbid: str | None) -> list:
+    """
+    Sort torrent results by relevance:
+    - Priority 1: matching imdbid (if resolved)
+    - Priority 2: title contains all query words (score == 1.0)
+    - Within each tier: sorted by seeders descending
+    - Non-matching results pushed to the end
+    """
+    def sort_key(r):
+        has_imdb_match = 1 if (target_imdbid and r.get("imdbid") == target_imdbid) else 0
+        title_score = _title_match_score(r.get("title", ""), query)
+        seeders = r.get("seeders", 0)
+        # Sort descending: negate so higher = first
+        return (-has_imdb_match, -title_score, -seeders)
+
+    return sorted(results, key=sort_key)
 
 
 # ─── Media details ─────────────────────────────────────────────────────────────

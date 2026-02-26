@@ -42,7 +42,7 @@ function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick }) {
     return (
         <div
             className={"movie-card" + (isWatched ? " movie-card-seen" : "") + (onCardClick ? " movie-card-clickable" : "")}
-            onClick={onCardClick ? () => onCardClick(result.title) : undefined}
+            onClick={onCardClick ? () => onCardClick(result.title, result.tmdb_id) : undefined}
         >
             <div className="movie-card-poster">
                 {hasPoster
@@ -573,6 +573,8 @@ export default function MainContentModule() {
     const [torrentLoading, setTorrentLoading] = useState(false);
     const [torrentError,   setTorrentError]   = useState(null);
     const [expandedIndex,  setExpandedIndex]  = useState(null);
+    const [torrentVisible, setTorrentVisible] = useState(20);
+    const torrentSentinelRef = useRef(null);
 
     // Browse filters (lifted from BrowseView for sidebar)
     const [browseGenre, setBrowseGenre] = useState("");
@@ -628,15 +630,16 @@ export default function MainContentModule() {
     }, [searchQuery]);
 
     // Phase 2: user clicked a thumbnail → search Jackett by official title
-    const handleMovieCardClick = useCallback(async (title) => {
+    const handleMovieCardClick = useCallback(async (title, tmdbId) => {
         setTorrentTitle(title);
         setTorrentMode(true);
         setTorrentLoading(true);
         setTorrentError(null);
         setTorrentResults([]);
         setExpandedIndex(null);
+        setTorrentVisible(20);
         try {
-            const res = await searchApi.search(title);
+            const res = await searchApi.search(title, tmdbId);
             setTorrentResults(res.data.results || []);
         } catch {
             setTorrentError("Torrent search failed — try again.");
@@ -644,6 +647,20 @@ export default function MainContentModule() {
             setTorrentLoading(false);
         }
     }, []);
+
+    // Infinite scroll for torrent list: observe sentinel and load more
+    useEffect(() => {
+        if (!torrentMode || torrentLoading || torrentResults.length === 0) return;
+        const sentinel = torrentSentinelRef.current;
+        if (!sentinel) return;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                setTorrentVisible(prev => Math.min(prev + 20, torrentResults.length));
+            }
+        }, { rootMargin: "300px" });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [torrentMode, torrentLoading, torrentResults.length]);
 
     const handleBackFromTorrents = useCallback(() => {
         setTorrentMode(false);
@@ -822,7 +839,7 @@ export default function MainContentModule() {
                                     {!torrentLoading && torrentResults.length > 0 && (
                                         <div className="search-results-container">
                                             <div className="search-results-count">{torrentResults.length} torrent{torrentResults.length > 1 ? "s" : ""}</div>
-                                            {torrentResults.map((result, idx) => (
+                                            {torrentResults.slice(0, torrentVisible).map((result, idx) => (
                                                 <SearchResultRow
                                                     key={idx}
                                                     result={result}
@@ -831,6 +848,13 @@ export default function MainContentModule() {
                                                     onDownload={handleDownload}
                                                 />
                                             ))}
+                                            {torrentVisible < torrentResults.length && (
+                                                <div className="browse-loading">
+                                                    <div className="browse-spinner" />
+                                                    <span>Loading more...</span>
+                                                </div>
+                                            )}
+                                            <div ref={torrentSentinelRef} className="browse-sentinel" />
                                         </div>
                                     )}
                                 </div>
