@@ -72,6 +72,7 @@ class JackettService:
                 "peers": self._attr_val(item, "peers"),
                 "imdbid": self._normalize_imdb(self._attr_val(item, "imdbid")),
                 "category": self._text(item, "category"),
+                "category_ids": self._all_attr_vals(item, "category"),
                 "magneturl": self._find_magnet(item),
                 "indexer": self._text(item, "jackettindexer") or self._text(item, "{http://jackett.github.io/}indexer"),
             }
@@ -131,6 +132,17 @@ class JackettService:
             if attr.get("name") == attr_name:
                 return attr.get("value")
         return None
+
+    def _all_attr_vals(self, item, attr_name: str) -> list[str]:
+        """Get ALL values for a torznab:attr with the given name."""
+        vals = []
+        for attr in item.findall(f"{{{TORZNAB_NS}}}attr"):
+            if attr.get("name") == attr_name:
+                vals.append(attr.get("value", ""))
+        for attr in item.findall("{http://www.newznab.com/DTD/2010/feeds/attributes/}attr"):
+            if attr.get("name") == attr_name:
+                vals.append(attr.get("value", ""))
+        return vals
 
     def _find_magnet(self, item) -> Optional[str]:
         """Extract magnet link from item."""

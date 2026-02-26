@@ -38,6 +38,28 @@ _TMDB_SORT_MAP: dict[str, str] = {
 
 # ─── Jackett raw torrent search ───────────────────────────────────────────────
 
+_ADULT_TITLE_WORDS = {"xxx", "porn", "hentai"}
+
+def _is_adult_content(result: dict) -> bool:
+    """Return True if the torrent appears to be adult / XXX content."""
+    # 1. Torznab category IDs 6000-6999 = "XXX"
+    for cid in result.get("category_ids", []):
+        try:
+            if 6000 <= int(cid) < 7000:
+                return True
+        except (ValueError, TypeError):
+            pass
+    # 2. Category text
+    cat = (result.get("category") or "").lower()
+    if any(k in cat for k in ("xxx", "adult", "porn")):
+        return True
+    # 3. Title keywords
+    title = _re.sub(r"[^a-z0-9\s]", " ", (result.get("title") or "").lower())
+    if _ADULT_TITLE_WORDS & set(title.split()):
+        return True
+    return False
+
+
 @router.get("")
 async def search_torrents(
     query: str = Query(..., min_length=1),
@@ -46,6 +68,10 @@ async def search_torrents(
 ):
     """Search Jackett for torrents matching the given title."""
     results = await jackett.search(query, categories)
+
+    # Filter out adult / XXX content
+    results = [r for r in results if not _is_adult_content(r)]
+
     deduped = _deduplicate_for_search(results)
 
     # If a tmdb_id was provided, resolve it to an IMDb ID and sort by relevance
