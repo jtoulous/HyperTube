@@ -32,7 +32,8 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
                     ? <img src={result.poster} alt={result.title} loading="lazy" style={styles.posterImg} />
                     : <div style={styles.noPoster}><span>🎬</span></div>
                 }
-                {isWatched && <div style={styles.watchedBadge}>✓ Watched</div>}
+                {isWatched && <div style={styles.watchedOverlay} />}
+                {isWatched && <div style={styles.watchedBadge}>✓ WATCHED</div>}
                 {result.imdb_rating && result.imdb_rating !== "N/A" && (
                     <div style={styles.ratingBadge}>★ {result.imdb_rating}</div>
                 )}
@@ -115,6 +116,13 @@ const styles = {
         fontSize: "2.2rem",
         background: "#161b22",
     },
+    watchedOverlay: {
+        position: "absolute",
+        inset: 0,
+        background: "rgba(0, 0, 0, 0.45)",
+        pointerEvents: "none",
+        zIndex: 1,
+    },
     watchedBadge: {
         position: "absolute",
         top: 6,
@@ -127,6 +135,7 @@ const styles = {
         borderRadius: 10,
         letterSpacing: "0.03em",
         backdropFilter: "blur(4px)",
+        zIndex: 2,
     },
     ratingBadge: {
         position: "absolute",

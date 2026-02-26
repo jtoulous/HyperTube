@@ -8,6 +8,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Codecs that browsers can decode natively in <video> element
+BROWSER_SAFE_CODECS = {"h264", "vp8", "vp9", "av1"}
+
 router = APIRouter(prefix="/stream", tags=["Streaming"])
 
 MEDIA_DIRS = ["/downloads", "/default-videos"]
@@ -98,7 +101,20 @@ async def stream_video(
     filepath = _safe_path(filename)
 
     target_height = RESOLUTION_MAP.get(resolution)
-    use_copy = (resolution == "original")
+
+    # Detect source video codec to decide copy vs transcode
+    source_codec = None
+    try:
+        probe = await _run_ffprobe(filepath)
+        for stream in probe.get("streams", []):
+            if stream.get("codec_type") == "video":
+                source_codec = stream.get("codec_name", "").lower()
+                break
+    except Exception:
+        pass
+
+    # Only stream-copy when source codec is browser-safe AND user wants original
+    can_copy = (resolution == "original" and source_codec in BROWSER_SAFE_CODECS)
 
     cmd = [
         "ffmpeg", "-hide_banner", "-loglevel", "error",
@@ -108,28 +124,34 @@ async def stream_video(
         "-map", f"0:a:{audio_track}",
     ]
 
-    if use_copy:
+    if can_copy:
         cmd += [
             "-avoid_negative_ts", "make_zero",
             "-c:v", "copy",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
         ]
     else:
-        # resolution downscale
+        # Transcode to H.264 (universally supported by browsers)
+        vf_filters = []
         if target_height:
-            cmd += ["-vf", f"scale=-2:{target_height}"]
+            vf_filters.append(f"scale=-2:{target_height}")
+        # Force 8-bit output for maximum compatibility
+        vf_filters.append("format=yuv420p")
+        cmd += ["-vf", ",".join(vf_filters)]
         cmd += [
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
-            "-crf", "28",
+            "-crf", "23",
             "-g", "150",
             "-sc_threshold", "0",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
         ]
 
+    # Output as fragmented MP4 — universally supported by browsers
     cmd += [
-        "-f", "matroska",
+        "-f", "mp4",
+        "-movflags", "frag_keyframe+empty_moov+default_base_moof",
         "pipe:1",
     ]
 
@@ -160,6 +182,6 @@ async def stream_video(
 
     return StreamingResponse(
         iter_ffmpeg(),
-        media_type="video/x-matroska",
+        media_type="video/mp4",
         headers={"Cache-Control": "no-cache"},
     )

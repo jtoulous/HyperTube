@@ -22,7 +22,7 @@ async def create_download(
 ):
     """
     Add a new torrent download (magnet link).
-    Returns the created Download object.
+    Creates a SHARED download entry — if the torrent already exists, returns it.
     """
     try:
         download = await download_service.create_download(
@@ -46,9 +46,9 @@ async def get_downloads(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Get all downloads for the current user.
+    Get ALL downloads (shared library — visible to all users).
     """
-    downloads = await download_service.get_user_downloads(session, current_user.id)
+    downloads = await download_service.get_all_downloads(session)
     return downloads
 
 
@@ -67,7 +67,7 @@ async def get_download_progress(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid download ID")
 
-    download = await download_service.get_download(session, download_id, current_user.id)
+    download = await download_service.get_download(session, download_id)
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
@@ -101,7 +101,7 @@ async def get_download_files(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid download ID")
 
-    download = await download_service.get_download(session, download_id, current_user.id)
+    download = await download_service.get_download(session, download_id)
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
@@ -125,4 +125,4 @@ async def get_download_files(
 
     # Sort by size descending (main feature film is typically the largest)
     video_files.sort(key=lambda x: x["size"], reverse=True)
-    return {"files": video_files}
+    return {"files": video_files, "download_id": str(download.id)}

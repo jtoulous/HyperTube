@@ -27,12 +27,13 @@ const PCT_COLORS = {
     error:     { color: "#f85149" },
 };
 
-export default function DownloadItem({ download }) {
+export default function DownloadItem({ download, watchInfo, onWatchHistoryUpdate }) {
     const [progress, setProgress] = useState(null);
     const pollingRef = useRef(!TERMINAL_STATUSES.has(download.status));
     const [playerFile, setPlayerFile] = useState(null);
     const [allFiles, setAllFiles] = useState([]);
     const [watchLoading, setWatchLoading] = useState(false);
+    const [currentDownloadId, setCurrentDownloadId] = useState(null);
 
     useEffect(() => {
         if (!download || !pollingRef.current) return;
@@ -71,12 +72,14 @@ export default function DownloadItem({ download }) {
         try {
             const res = await downloadsApi.getDownloadFiles(download.id);
             const files = res.data.files || [];
+            const dlId = res.data.download_id || download.id;
             if (files.length === 0) {
                 alert("No playable video files found.");
                 return;
             }
             setAllFiles(files);
             setPlayerFile(files[0]);
+            setCurrentDownloadId(dlId);
         } catch (err) {
             console.error("Failed to load files:", err);
             alert("Could not load video files.");
@@ -98,13 +101,21 @@ export default function DownloadItem({ download }) {
                     title={displayProgress.title}
                     allFiles={allFiles}
                     onFileChange={setPlayerFile}
-                    onClose={() => setPlayerFile(null)}
+                    onClose={() => { setPlayerFile(null); if (onWatchHistoryUpdate) onWatchHistoryUpdate(); }}
+                    downloadId={currentDownloadId}
+                    onWatchHistoryUpdate={onWatchHistoryUpdate}
                 />
             )}
-            <div style={{ ...styles.item, ...(BORDER_COLORS[status] || {}) }}>
+            <div style={{ ...styles.item, ...(BORDER_COLORS[status] || {}), ...(watchInfo?.completed ? styles.itemWatched : {}) }}>
                 <div style={styles.header}>
                     <span style={styles.title}>{displayProgress.title}</span>
                     <div style={styles.headerRight}>
+                        {watchInfo?.completed && <span style={styles.watchedTag}>✓ WATCHED</span>}
+                        {watchInfo && !watchInfo.completed && watchInfo.last_position > 0 && watchInfo.duration > 0 && (
+                            <span style={styles.resumeTag}>
+                                Resume {Math.round((watchInfo.last_position / watchInfo.duration) * 100)}%
+                            </span>
+                        )}
                         {isCompleted && (
                             <button
                                 style={{ ...styles.watchBtn, ...(watchLoading ? styles.watchBtnDisabled : {}) }}
@@ -115,7 +126,7 @@ export default function DownloadItem({ download }) {
                                 {watchLoading ? (
                                     <span style={styles.watchSpinner} />
                                 ) : (
-                                    "▶ Watch"
+                                    watchInfo?.completed ? "▶ Rewatch" : watchInfo?.last_position > 0 ? "▶ Resume" : "▶ Watch"
                                 )}
                             </button>
                         )}
@@ -141,7 +152,11 @@ const styles = {
         borderRadius: 8,
         padding: "14px 16px",
         borderLeft: "3px solid #007BFF",
-        transition: "border-color 0.2s",
+        transition: "border-color 0.2s, opacity 0.2s",
+    },
+    itemWatched: {
+        opacity: 0.6,
+        borderLeftColor: "#3fb950",
     },
     header: {
         display: "flex",
@@ -234,5 +249,23 @@ const styles = {
         color: "#007BFF",
         minWidth: 48,
         textAlign: "right",
+    },
+    watchedTag: {
+        fontSize: "0.68rem",
+        fontWeight: 600,
+        color: "#3fb950",
+        background: "rgba(63, 185, 80, 0.1)",
+        padding: "2px 8px",
+        borderRadius: 4,
+        whiteSpace: "nowrap",
+    },
+    resumeTag: {
+        fontSize: "0.68rem",
+        fontWeight: 600,
+        color: "#d29922",
+        background: "rgba(210, 153, 34, 0.1)",
+        padding: "2px 8px",
+        borderRadius: 4,
+        whiteSpace: "nowrap",
     },
 };

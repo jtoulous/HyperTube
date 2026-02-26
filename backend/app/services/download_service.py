@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 class DownloadService:
     """
     Manages downloads: adds torrents to qBittorrent, tracks progress, stores in DB.
+    Downloads are SHARED – one entry per torrent_hash, visible to all users.
     """
 
     async def create_download(
@@ -22,8 +23,8 @@ class DownloadService:
         imdb_id: str | None = None,
     ) -> Download:
         """
-        Add a torrent to qBittorrent and create a Download record.
-        If the user already has a download with this hash, return it.
+        Add a torrent to qBittorrent and create a shared Download record.
+        If the torrent_hash already exists globally, return the existing entry.
         """
         # Extract torrent hash from magnet link
         torrent_hash = self._get_hash_from_magnet(magnet_link)
@@ -31,31 +32,29 @@ class DownloadService:
             logger.error(f"Could not extract hash from magnet: {magnet_link[:80]}…")
             raise Exception("Invalid magnet link format")
 
-        # Check if this user already has a download with this hash
+        # Check if this torrent already exists globally (shared)
         existing = await session.execute(
-            select(Download).where(
-                and_(Download.user_id == user_id, Download.torrent_hash == torrent_hash)
-            )
+            select(Download).where(Download.torrent_hash == torrent_hash)
         )
         existing_download = existing.scalar_one_or_none()
         if existing_download:
-            logger.info(f"Download already exists for user {user_id}: {torrent_hash}")
+            logger.info(f"Download already exists globally: {torrent_hash}")
             return existing_download
 
-        # Add magnet to qBittorrent
+        # Add magnet to qBittorrent (shared category)
         async with TorrentService() as ts:
             success = await ts.add_magnet(
                 magnet_link,
-                category=f"hypertube-{user_id}",
-                tags=f"user:{user_id}",
+                category="hypertube-shared",
+                tags=f"added_by:{user_id}",
             )
             if not success:
                 logger.error(f"Failed to add magnet: {magnet_link[:80]}…")
                 raise Exception("Failed to add torrent to download client")
 
-        # Create Download record
+        # Create shared Download record
         download = Download(
-            user_id=user_id,
+            added_by=user_id,
             title=title,
             magnet_link=magnet_link,
             imdb_id=imdb_id,
@@ -79,23 +78,30 @@ class DownloadService:
                 pass
         return None
 
-    async def get_user_downloads(self, session: AsyncSession, user_id: UUID) -> list[Download]:
+    async def get_all_downloads(self, session: AsyncSession) -> list[Download]:
         """
-        Get all downloads for a user.
+        Get ALL downloads (shared library – visible to all users).
         """
         result = await session.execute(
-            select(Download).where(Download.user_id == user_id).order_by(Download.created_at.desc())
+            select(Download).order_by(Download.created_at.desc())
         )
         return result.scalars().all()
 
-    async def get_download(self, session: AsyncSession, download_id: UUID, user_id: UUID) -> Download | None:
+    async def get_user_downloads(self, session: AsyncSession, user_id: UUID) -> list[Download]:
         """
-        Get a single download, ensuring it belongs to the user.
+        Backwards compat: get downloads added by a specific user.
         """
         result = await session.execute(
-            select(Download).where(
-                and_(Download.id == download_id, Download.user_id == user_id)
-            )
+            select(Download).where(Download.added_by == user_id).order_by(Download.created_at.desc())
+        )
+        return result.scalars().all()
+
+    async def get_download(self, session: AsyncSession, download_id: UUID) -> Download | None:
+        """
+        Get a single download by ID (no user filter – shared library).
+        """
+        result = await session.execute(
+            select(Download).where(Download.id == download_id)
         )
         return result.scalar_one_or_none()
 

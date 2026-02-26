@@ -1,8 +1,39 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import PlayerModule from "./PlayerModule";
 import { formatSize } from "./utils";
+import { watchApi } from "../../api/watch";
 
-export default function WatchModal({ file, title, allFiles, onFileChange, onClose }) {
+export default function WatchModal({ file, title, allFiles, onFileChange, onClose, downloadId, onWatchHistoryUpdate }) {
+    const [initialPosition, setInitialPosition] = useState(0);
+    const resumeFetched = useRef(false);
+
+    // Fetch resume position on mount — doesn't block player rendering
+    useEffect(() => {
+        if (!downloadId || resumeFetched.current) return;
+        resumeFetched.current = true;
+        watchApi.getProgress(downloadId)
+            .then(res => {
+                const data = res.data;
+                if (data.completed) {
+                    setInitialPosition(0);
+                } else if (data.last_position > 0) {
+                    setInitialPosition(data.last_position);
+                }
+            })
+            .catch(() => { /* no history yet — start from beginning */ });
+    }, [downloadId]);
+
+    // Save progress callback (called by PlayerModule every 15s + on unmount)
+    const handleSaveProgress = useCallback(async (dlId, position, duration) => {
+        if (!dlId) return;
+        try {
+            await watchApi.saveProgress(dlId, position, duration);
+            if (onWatchHistoryUpdate) onWatchHistoryUpdate();
+        } catch (err) {
+            console.error("Failed to save watch progress:", err);
+        }
+    }, [onWatchHistoryUpdate]);
+
     useEffect(() => {
         const onKey = (e) => { if (e.key === "Escape") onClose(); };
         document.addEventListener("keydown", onKey);
@@ -32,7 +63,12 @@ export default function WatchModal({ file, title, allFiles, onFileChange, onClos
                     )}
                     <button style={styles.closeBtn} onClick={onClose} title="Close (Esc)">✕</button>
                 </div>
-                <PlayerModule filename={file.name} />
+                <PlayerModule
+                    filename={file.name}
+                    downloadId={downloadId}
+                    onSaveProgress={handleSaveProgress}
+                    initialPosition={initialPosition}
+                />
             </div>
         </div>
     );

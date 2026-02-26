@@ -28,12 +28,16 @@ function buildUrl(filename, resolution, audioTrack, start) {
     return `/api/v1/stream/${filename}?${p}`;
 }
 
-export default function PlayerModule({ filename }) {
+export default function PlayerModule({ filename, downloadId, onSaveProgress, initialPosition }) {
     const videoRef      = useRef(null);
     const containerRef  = useRef(null);
     const seekRef       = useRef(null);
     const hideTimerRef  = useRef(null);
-    const wasPlayingRef = useRef(false); // remember play state across stream reloads
+    const wasPlayingRef = useRef(false);
+    const progressTimerRef = useRef(null);
+    const absTimeRef = useRef(0);  // always-current absTime for cleanup
+    const totalDurationRef = useRef(0); // stable ref for progress save callbacks
+    const initialPosRef = useRef(initialPosition); // capture initial value
 
     // Inject keyframe animation for the spinner once
     useEffect(() => {
@@ -70,15 +74,18 @@ export default function PlayerModule({ filename }) {
 
     // Derived absolute time
     const absTime = timeOffset + currentTime;
+    absTimeRef.current = absTime;  // keep ref in sync for cleanup/interval callbacks
+    totalDurationRef.current = totalDuration;
     const progress = totalDuration > 0 ? (absTime / totalDuration) * 100 : 0;
     const bufferProgress = totalDuration > 0 ? ((timeOffset + buffered) / totalDuration) * 100 : 0;
 
     const streamUrl = buildUrl(filename, resolution, audioTrack, startParam);
 
-    // Fetch file info (duration + audio tracks)
+    // Fetch file info (duration + audio tracks), and resume from initial position if provided
     useEffect(() => {
-        setTimeOffset(0);
-        setStartParam(0);
+        const resumePos = initialPosRef.current || 0;
+        setTimeOffset(resumePos);
+        setStartParam(resumePos);
         setAudioTrack(0);
         setResolution("original");
 
@@ -93,6 +100,15 @@ export default function PlayerModule({ filename }) {
                 setAudioTracks([]);
             });
     }, [filename]);
+
+    // When initialPosition prop updates (e.g. resume position loaded async),
+    // seek to that position if we haven't started playing yet
+    useEffect(() => {
+        if (initialPosition > 0 && !playing && absTimeRef.current === 0) {
+            setTimeOffset(initialPosition);
+            setStartParam(initialPosition);
+        }
+    }, [initialPosition]);
 
     // Video event listeners (attached once, persistent across stream reloads)
     useEffect(() => {
@@ -116,6 +132,11 @@ export default function PlayerModule({ filename }) {
                 video.play().catch(() => {});
             }
         };
+        const onError      = () => {
+            const e = video.error;
+            console.error("Video error:", e?.code, e?.message);
+            setStalled(false);
+        };
 
         video.addEventListener("play",         onPlay);
         video.addEventListener("pause",        onPause);
@@ -125,6 +146,8 @@ export default function PlayerModule({ filename }) {
         video.addEventListener("waiting",      onWaiting);
         video.addEventListener("canplay",      onCanPlay);
         video.addEventListener("playing",      onCanPlay);
+        video.addEventListener("loadeddata",   onCanPlay);
+        video.addEventListener("error",        onError);
 
         return () => {
             video.removeEventListener("play",         onPlay);
@@ -135,15 +158,34 @@ export default function PlayerModule({ filename }) {
             video.removeEventListener("waiting",      onWaiting);
             video.removeEventListener("canplay",      onCanPlay);
             video.removeEventListener("playing",      onCanPlay);
-            // Abort any in-flight stream on unmount
-            video.pause();
-            video.removeAttribute("src");
-            video.load();
+            video.removeEventListener("loadeddata",   onCanPlay);
+            video.removeEventListener("error",        onError);
         };
     }, []);
 
-    // Load new stream URL into persistent <video> element.
-    // Setting .src on an attached element auto-aborts the previous fetch.
+    // ── Watch progress tracking: save every 15 seconds + on unmount ──
+    useEffect(() => {
+        if (!downloadId || !onSaveProgress) return;
+
+        // Save progress every 15 seconds while playing
+        progressTimerRef.current = setInterval(() => {
+            const pos = absTimeRef.current;
+            if (pos > 0) {
+                onSaveProgress(downloadId, pos, totalDurationRef.current);
+            }
+        }, 15000);
+
+        return () => {
+            // Save final position on unmount / file change
+            clearInterval(progressTimerRef.current);
+            const pos = absTimeRef.current;
+            if (pos > 0) {
+                onSaveProgress(downloadId, pos, totalDurationRef.current);
+            }
+        };
+    }, [downloadId, onSaveProgress]);
+
+    // Load stream URL into <video>. Cleanup aborts the previous stream.
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -152,6 +194,11 @@ export default function PlayerModule({ filename }) {
         setStalled(true);
         video.src = streamUrl;
         video.load();
+        return () => {
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
+        };
     }, [streamUrl]);
 
     // Fullscreen listener
@@ -294,7 +341,7 @@ export default function PlayerModule({ filename }) {
 
             {/* Buffering spinner */}
             {stalled && (
-                <div style={styles.bigPlayOverlay}>
+                <div style={styles.bigPlayOverlay} onClick={togglePlay}>
                     <div style={styles.spinner} />
                 </div>
             )}

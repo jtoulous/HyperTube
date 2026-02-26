@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { GlobalState } from "../State";
 import { searchApi } from "../api/search";
 import { downloadsApi } from "../api/downloads";
+import { watchApi } from "../api/watch";
 import MovieCard from "./submodules/MovieCard";
 import BrowseView from "./submodules/BrowseView";
 import SearchResultRow from "./submodules/SearchResultRow";
@@ -64,13 +65,18 @@ export default function MainContentModule() {
     const [libraryLoading, setLibraryLoading] = useState(false);
     const [selectedLibraryMovie, setSelectedLibraryMovie] = useState(null);
 
+    // Watch history: maps download_id → { completed, last_position, duration, ... }
+    const [watchHistory, setWatchHistory] = useState({});
+
+    // Derive watched IMDB IDs from watch history + downloads for browse/search badge
     const watchedImdbIds = useMemo(() => {
         const ids = new Set();
         downloads.forEach(dl => {
-            if (dl.imdb_id && dl.status === "completed") ids.add(dl.imdb_id);
+            const wh = watchHistory[dl.id];
+            if (wh?.completed && dl.imdb_id) ids.add(dl.imdb_id);
         });
         return ids;
-    }, [downloads]);
+    }, [downloads, watchHistory]);
 
     /* ── Enrich downloads with TMDB metadata for library view ── */
     const enrichLibrary = useCallback(async () => {
@@ -216,6 +222,16 @@ export default function MainContentModule() {
         }
     }, [isLogged]);
 
+    const loadWatchHistory = useCallback(async () => {
+        if (!isLogged) return;
+        try {
+            const res = await watchApi.getHistory();
+            setWatchHistory(res.data.history || {});
+        } catch (err) {
+            console.error("Load watch history error:", err);
+        }
+    }, [isLogged]);
+
     const handleDownload = useCallback(async (title, magnetLink, imdbId) => {
         if (!title || !magnetLink) return;
 
@@ -234,12 +250,12 @@ export default function MainContentModule() {
     }, [loadDownloads]);
 
     useEffect(() => {
-        if (isLogged) loadDownloads();
-    }, [isLogged, loadDownloads]);
+        if (isLogged) { loadDownloads(); loadWatchHistory(); }
+    }, [isLogged, loadDownloads, loadWatchHistory]);
 
     useEffect(() => {
-        if (currentTab === "library" && isLogged) loadDownloads();
-    }, [currentTab, isLogged, loadDownloads]);
+        if (currentTab === "library" && isLogged) { loadDownloads(); loadWatchHistory(); }
+    }, [currentTab, isLogged, loadDownloads, loadWatchHistory]);
 
     /* ── Computed sidebar style ── */
     const sidebarStyle = isMobile
@@ -461,7 +477,12 @@ export default function MainContentModule() {
                                 </div>
                                 <div style={s.libraryDownloads}>
                                     {selectedLibraryMovie.downloads.map(dl => (
-                                        <DownloadItem key={dl.id} download={dl} />
+                                        <DownloadItem
+                                            key={dl.id}
+                                            download={dl}
+                                            watchInfo={watchHistory[dl.id]}
+                                            onWatchHistoryUpdate={loadWatchHistory}
+                                        />
                                     ))}
                                 </div>
                             </div>
@@ -486,16 +507,21 @@ export default function MainContentModule() {
                                     {filteredLibraryMovies.length} movie{filteredLibraryMovies.length > 1 ? "s" : ""}
                                 </div>
                                 <div style={s.movieGrid}>
-                                    {filteredLibraryMovies.map((movie, idx) => (
-                                        <MovieCard
-                                            key={movie.imdbid || movie.title || idx}
-                                            result={movie}
-                                            isWatched={!!(movie.imdbid && watchedImdbIds.has(movie.imdbid))}
-                                            onDownload={handleDownload}
-                                            isLogged={isLogged}
-                                            onCardClick={() => setSelectedLibraryMovie(movie)}
-                                        />
-                                    ))}
+                                    {filteredLibraryMovies.map((movie, idx) => {
+                                        // Check if any of this movie's downloads have been watched by the user
+                                        const isWatchedByUser = movie.downloads?.some(dl => watchHistory[dl.id]?.completed)
+                                            || !!(movie.imdbid && watchedImdbIds.has(movie.imdbid));
+                                        return (
+                                            <MovieCard
+                                                key={movie.imdbid || movie.title || idx}
+                                                result={movie}
+                                                isWatched={isWatchedByUser}
+                                                onDownload={handleDownload}
+                                                isLogged={isLogged}
+                                                onCardClick={() => setSelectedLibraryMovie(movie)}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </>
                         )}
