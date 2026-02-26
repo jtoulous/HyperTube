@@ -21,11 +21,12 @@ const BROWSE_SORTS = [
 
 // ─── Movie Card ───────────────────────────────────────────────────────────────
 
-function MovieCard({ result, isWatched, onDownload, isLogged }) {
+function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick }) {
     const [downloading, setDownloading] = useState(false);
     const [added, setAdded] = useState(false);
 
-    const handleDownload = async () => {
+    const handleDownload = async (e) => {
+        e.stopPropagation();
         if (!result.magneturl || downloading || added) return;
         setDownloading(true);
         try {
@@ -39,7 +40,10 @@ function MovieCard({ result, isWatched, onDownload, isLogged }) {
     const hasPoster = result.poster && result.poster !== "N/A";
 
     return (
-        <div className={"movie-card" + (isWatched ? " movie-card-seen" : "")}>
+        <div
+            className={"movie-card" + (isWatched ? " movie-card-seen" : "") + (onCardClick ? " movie-card-clickable" : "")}
+            onClick={onCardClick ? () => onCardClick(result.title) : undefined}
+        >
             <div className="movie-card-poster">
                 {hasPoster
                     ? <img src={result.poster} alt={result.title} loading="lazy" />
@@ -86,7 +90,7 @@ function MovieCard({ result, isWatched, onDownload, isLogged }) {
 
 // ─── Browse View ──────────────────────────────────────────────────────────────
 
-function BrowseView({ watchedImdbIds, onDownload, isLogged }) {
+function BrowseView({ watchedImdbIds, onDownload, isLogged, onCardClick }) {
     const [genre,  setGenre]  = useState("");
     const [period, setPeriod] = useState("all");
     const [sortBy, setSortBy] = useState("seeders");
@@ -212,11 +216,12 @@ function BrowseView({ watchedImdbIds, onDownload, isLogged }) {
             <div className="movie-grid">
                 {results.map((result, idx) => (
                     <MovieCard
-                        key={result.imdbid || idx}
+                        key={result.tmdb_id || result.imdbid || idx}
                         result={result}
                         isWatched={!!(result.imdbid && watchedImdbIds.has(result.imdbid))}
                         onDownload={onDownload}
                         isLogged={isLogged}
+                        onCardClick={onCardClick}
                     />
                 ))}
             </div>
@@ -595,18 +600,26 @@ export default function MainContentModule() {
 
     const [currentTab, setCurrentTab] = useState("search");
     const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [searchError, setSearchError] = useState(null);
+
+    // Phase 1: TMDB thumbnail results (after user types a query)
+    const [tmdbResults, setTmdbResults] = useState([]);
+    const [tmdbLoading, setTmdbLoading] = useState(false);
+    const [tmdbError,   setTmdbError]   = useState(null);
     const [hasSearched, setHasSearched] = useState(false);
-    const [expandedIndex, setExpandedIndex] = useState(null);
 
-    // Downloads (shared between Library tab + watched tracking in Browse)
-    const [downloads, setDownloads] = useState([]);
+    // Phase 2: Jackett torrent list (after user clicks a thumbnail)
+    const [torrentMode,    setTorrentMode]    = useState(false);
+    const [torrentTitle,   setTorrentTitle]   = useState("");
+    const [torrentResults, setTorrentResults] = useState([]);
+    const [torrentLoading, setTorrentLoading] = useState(false);
+    const [torrentError,   setTorrentError]   = useState(null);
+    const [expandedIndex,  setExpandedIndex]  = useState(null);
+
+    // Downloads
+    const [downloads,      setDownloads]      = useState([]);
     const [downloadLoading, setDownloadLoading] = useState(false);
-    const [downloadError, setDownloadError] = useState(null);
+    const [downloadError,  setDownloadError]  = useState(null);
 
-    // Set of imdbids the user has already watched/downloaded (completed)
     const watchedImdbIds = useMemo(() => {
         const ids = new Set();
         downloads.forEach(dl => {
@@ -620,25 +633,49 @@ export default function MainContentModule() {
         setCurrentTab(tab);
     };
 
+    // Phase 1: query TMDB → thumbnail grid
     const runNewSearch = useCallback(async () => {
-        const q = searchQuery.trim();
-        if (!q) return;
-
-        setSearchLoading(true);
-        setSearchError(null);
-        setSearchResults([]);
+        const trimmed = searchQuery.trim();
+        if (!trimmed) return;
+        setTmdbLoading(true);
+        setTmdbError(null);
+        setTmdbResults([]);
         setHasSearched(true);
-        setExpandedIndex(null);
-
+        setTorrentMode(false);
+        setTorrentResults([]);
         try {
-            const res = await searchApi.search(q);
-            setSearchResults(res.data.results || []);
+            const res = await searchApi.searchTmdb(trimmed);
+            setTmdbResults(res.data.results || []);
         } catch {
-            setSearchError("Search failed — check your connection or try again.");
+            setTmdbError("Search failed — check your connection or try again.");
         } finally {
-            setSearchLoading(false);
+            setTmdbLoading(false);
         }
     }, [searchQuery]);
+
+    // Phase 2: user clicked a thumbnail → search Jackett by official title
+    const handleMovieCardClick = useCallback(async (title) => {
+        setTorrentTitle(title);
+        setTorrentMode(true);
+        setTorrentLoading(true);
+        setTorrentError(null);
+        setTorrentResults([]);
+        setExpandedIndex(null);
+        try {
+            const res = await searchApi.search(title);
+            setTorrentResults(res.data.results || []);
+        } catch {
+            setTorrentError("Torrent search failed — try again.");
+        } finally {
+            setTorrentLoading(false);
+        }
+    }, []);
+
+    const handleBackFromTorrents = useCallback(() => {
+        setTorrentMode(false);
+        setTorrentResults([]);
+        setTorrentError(null);
+    }, []);
 
     const toggleExpand = (idx) => {
         setExpandedIndex(expandedIndex === idx ? null : idx);
@@ -714,49 +751,87 @@ export default function MainContentModule() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === "Enter") runNewSearch(); }}
                             />
-                            <button className="search-bar-btn" onClick={runNewSearch} disabled={searchLoading}>
-                                {searchLoading ? "Searching..." : "Search"}
+                            <button className="search-bar-btn" onClick={runNewSearch} disabled={tmdbLoading}>
+                                {tmdbLoading ? "Searching..." : "Search"}
                             </button>
                         </div>
 
                         <div className="search-list">
-                            {searchLoading && (
-                                <div className="search-list-status">
-                                    <div className="search-spinner" />
-                                    <span>Searching across all sources...</span>
+
+                            {/* ── Phase 2: torrent list for selected movie ── */}
+                            {torrentMode && (
+                                <div className="torrent-mode-container">
+                                    <div className="torrent-mode-header">
+                                        <button className="back-to-results-btn" onClick={handleBackFromTorrents}>
+                                            ← Back to results
+                                        </button>
+                                        <span className="torrent-mode-title">Torrents : <strong>{torrentTitle}</strong></span>
+                                    </div>
+                                    {torrentLoading && (
+                                        <div className="search-list-status">
+                                            <div className="search-spinner" />
+                                            <span>Searching torrents...</span>
+                                        </div>
+                                    )}
+                                    {!torrentLoading && torrentError && (
+                                        <div className="search-list-status search-list-error">{torrentError}</div>
+                                    )}
+                                    {!torrentLoading && !torrentError && torrentResults.length === 0 && (
+                                        <div className="search-list-status">No torrents found for this title.</div>
+                                    )}
+                                    {!torrentLoading && torrentResults.length > 0 && (
+                                        <div className="search-results-container">
+                                            <div className="search-results-count">{torrentResults.length} torrent{torrentResults.length > 1 ? "s" : ""}</div>
+                                            {torrentResults.map((result, idx) => (
+                                                <SearchResultRow
+                                                    key={idx}
+                                                    result={result}
+                                                    isExpanded={expandedIndex === idx}
+                                                    onToggle={() => toggleExpand(idx)}
+                                                    onDownload={handleDownload}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            {!searchLoading && searchError && (
-                                <div className="search-list-status search-list-error">{searchError}</div>
+                            {/* ── Phase 1: TMDB thumbnail grid after search ── */}
+                            {!torrentMode && tmdbLoading && (
+                                <div className="search-list-status">
+                                    <div className="search-spinner" />
+                                    <span>Searching movies...</span>
+                                </div>
                             )}
-
-                            {!searchLoading && !searchError && hasSearched && searchResults.length === 0 && (
+                            {!torrentMode && !tmdbLoading && tmdbError && (
+                                <div className="search-list-status search-list-error">{tmdbError}</div>
+                            )}
+                            {!torrentMode && !tmdbLoading && hasSearched && tmdbResults.length === 0 && (
                                 <div className="search-list-status">No results found.</div>
                             )}
+                            {!torrentMode && !tmdbLoading && hasSearched && tmdbResults.length > 0 && (
+                                <div className="movie-grid">
+                                    {tmdbResults.map((result, idx) => (
+                                        <MovieCard
+                                            key={result.tmdb_id || idx}
+                                            result={result}
+                                            isWatched={!!(result.imdbid && watchedImdbIds.has(result.imdbid))}
+                                            onDownload={handleDownload}
+                                            isLogged={isLogged}
+                                            onCardClick={handleMovieCardClick}
+                                        />
+                                    ))}
+                                </div>
+                            )}
 
-                            {/* Browse view: shown when no search has been submitted */}
-                            {!searchLoading && !hasSearched && (
+                            {/* ── Browse view: shown when no search yet ── */}
+                            {!torrentMode && !tmdbLoading && !hasSearched && (
                                 <BrowseView
                                     watchedImdbIds={watchedImdbIds}
                                     onDownload={handleDownload}
                                     isLogged={isLogged}
+                                    onCardClick={handleMovieCardClick}
                                 />
-                            )}
-
-                            {!searchLoading && !searchError && searchResults.length > 0 && (
-                                <div className="search-results-container">
-                                    <div className="search-results-count">{searchResults.length} result{searchResults.length > 1 ? "s" : ""}</div>
-                                    {searchResults.map((result, idx) => (
-                                        <SearchResultRow
-                                            key={idx}
-                                            result={result}
-                                            isExpanded={expandedIndex === idx}
-                                            onToggle={() => toggleExpand(idx)}
-                                            onDownload={handleDownload}
-                                        />
-                                    ))}
-                                </div>
                             )}
                         </div>
                     </div>

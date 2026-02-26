@@ -185,6 +185,53 @@
 }
 
 
+/* ── Torrent mode (phase 2: torrent list after clicking a thumbnail) ── */
+
+.torrent-mode-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    animation: fadeInTab 0.3s cubic-bezier(0.25, 1, 0.3, 1);
+}
+
+.torrent-mode-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 4px 14px;
+    flex-wrap: wrap;
+}
+
+.back-to-results-btn {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #ccc;
+    font-size: 0.85rem;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.back-to-results-btn:hover {
+    background: rgba(255, 127, 50, 0.18);
+    border-color: rgba(255, 127, 50, 0.4);
+    color: #ff7f32;
+}
+
+.torrent-mode-title {
+    font-size: 0.95rem;
+    color: #aaa;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.torrent-mode-title strong {
+    color: #eee;
+}
+
 /* ── Results container ── */
 
 .search-results-container {
@@ -1085,6 +1132,16 @@
 
 .movie-card-seen {
     border-color: rgba(60, 200, 100, 0.2);
+}
+
+.movie-card-clickable {
+    cursor: pointer;
+}
+
+.movie-card-clickable:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+    border-color: rgba(255, 127, 50, 0.45);
 }
 
 /* Poster */

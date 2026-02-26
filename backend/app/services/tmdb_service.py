@@ -86,6 +86,92 @@ class TmdbService:
         resp.raise_for_status()
         return resp
 
+    def _normalize_brief(self, item: dict, media_type: str) -> dict:
+        """Lightweight normalize for search/discover results (no full detail fetch)."""
+        title = item.get("title") or item.get("name") or ""
+        release_date = item.get("release_date") or item.get("first_air_date") or ""
+        year = release_date[:4] if release_date else None
+        vote_avg = item.get("vote_average")
+        imdb_rating = str(round(vote_avg, 1)) if vote_avg else None
+        return {
+            "tmdb_id":    item.get("id"),
+            "imdbid":     None,
+            "title":      title,
+            "year":       year,
+            "poster":     self._poster_url(item.get("poster_path")),
+            "imdb_rating": imdb_rating,
+            "plot":       item.get("overview") or "",
+            "type":       media_type,
+            "genre_tags": [],
+            "popularity": item.get("popularity", 0),
+        }
+
+    async def search_by_title(self, query: str, page: int = 1) -> list[dict]:
+        """Search movies and TV shows by title using TMDB /search/multi."""
+        if not query or not self._api_key:
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await self._get(
+                    client,
+                    f"{TMDB_BASE}/search/multi",
+                    {"query": query, "page": page, "include_adult": "false"},
+                )
+                data = resp.json()
+        except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            logger.error(f"TMDB search_by_title error for '{query}': {e}")
+            return []
+
+        results = []
+        for item in data.get("results", []):
+            media_type = item.get("media_type", "movie")
+            if media_type not in ("movie", "tv"):
+                continue
+            brief = self._normalize_brief(item, media_type)
+            if not brief["poster"]:
+                continue
+            results.append(brief)
+        return results
+
+    async def discover(
+        self,
+        genre_id: Optional[int] = None,
+        sort_by: str = "popularity.desc",
+        page: int = 1,
+        date_gte: Optional[str] = None,
+        date_lte: Optional[str] = None,
+    ) -> list[dict]:
+        """Discover movies via TMDB /discover/movie."""
+        if not self._api_key:
+            return []
+        params: dict = {
+            "sort_by":         sort_by,
+            "page":            page,
+            "include_adult":   "false",
+            "vote_count.gte":  "30",
+        }
+        if genre_id:
+            params["with_genres"] = str(genre_id)
+        if date_gte:
+            params["primary_release_date.gte"] = date_gte
+        if date_lte:
+            params["primary_release_date.lte"] = date_lte
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await self._get(client, f"{TMDB_BASE}/discover/movie", params)
+                data = resp.json()
+        except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            logger.error(f"TMDB discover error: {e}")
+            return []
+
+        results = []
+        for item in data.get("results", []):
+            brief = self._normalize_brief(item, "movie")
+            if not brief["poster"]:
+                continue
+            results.append(brief)
+        return results
+
     async def get_by_imdb(self, imdb_id: str) -> Optional[dict]:
         """
         Look up a movie or TV show by IMDb ID via TMDB's /find endpoint,

@@ -18,14 +18,17 @@ class JackettService:
         self._base = settings.JACKETT_URL.rstrip("/")
         self._api_key = settings.JACKETT_API_KEY
 
-    async def search(self, query: str, categories: str = "") -> list[dict]:
+    async def search(self, query: str, categories: str = "", offset: int = 0, limit: int = 100) -> list[dict]:
         """
         Search across all Jackett indexers.
         Returns a list of parsed torrent results.
+        offset/limit are passed to Jackett for true pagination.
         """
         params = {
             "apikey": self._api_key,
             "q": query,
+            "limit": limit,
+            "offset": offset,
         }
         if categories:
             params["cat"] = categories
