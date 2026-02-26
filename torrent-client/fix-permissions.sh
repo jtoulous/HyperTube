@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Fix /downloads ownership so qBittorrent (user abc, uid=1000) can write
 echo "[init-qbt] Fixing /downloads permissions..."
 mkdir -p /downloads
 chown -R abc:abc /downloads
