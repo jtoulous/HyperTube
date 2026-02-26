@@ -30,15 +30,15 @@ class AuthService:
         return pwd_context.verify(plain_password, hashed_password)
 
     @staticmethod
-    def create_access_token(user_id: str) -> str:
-        """Create JWT access token"""
+    def create_access_token(user_id: str) -> tuple[str, int]:
+        """Create JWT access token. Returns (token, expires_at_epoch)."""
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode = {
             "sub": str(user_id),
             "exp": expire
         }
         encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=JWT_ALGORITHM)
-        return encoded_jwt
+        return encoded_jwt, int(expire.timestamp())
 
     @staticmethod
     def generate_verification_token() -> str:

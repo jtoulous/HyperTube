@@ -10,7 +10,8 @@ from app.schemas.auth import (
     UserResponse,
     PasswordResetRequest,
     PasswordReset,
-    OAuthCodeRequest
+    OAuthCodeRequest,
+    RefreshRequest,
 )
 from app.services.auth_service import AuthService
 import httpx
@@ -39,11 +40,11 @@ async def register(
     user = await AuthService.register_user(db, user_data)
 
     # Generate token
-    access_token = AuthService.create_access_token(user.id)
+    access_token, expires_at = AuthService.create_access_token(user.id)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
-        token=Token(access_token=access_token)
+        token=Token(access_token=access_token, expires_at=expires_at)
     )
 
 @router.post("/login", response_model=AuthResponse)
@@ -64,11 +65,11 @@ async def login(
     user = await AuthService.login_user(db, login_data)
 
     # Generate token
-    access_token = AuthService.create_access_token(user.id)
+    access_token, expires_at = AuthService.create_access_token(user.id)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
-        token=Token(access_token=access_token)
+        token=Token(access_token=access_token, expires_at=expires_at)
     )
 
 @router.post("/forgot-password")
@@ -270,10 +271,55 @@ async def oauth_callback(
             profile_picture=user_info.get("profile_picture", "")
         )
 
-    jwt_token = AuthService.create_access_token(user.id)
+    jwt_token, expires_at = AuthService.create_access_token(user.id)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
-        token=Token(access_token=jwt_token)
+        token=Token(access_token=jwt_token, expires_at=expires_at)
     )
 
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    body: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Exchange a valid (or recently expired) JWT for a fresh one.
+    Allows up to 7 days of grace after expiry so users aren't
+    logged out by short-lived token timeouts or server restarts.
+    """
+    from jose import JWTError, jwt as jose_jwt
+    from app.config import JWT_ALGORITHM
+    from app.models.user import User
+    from sqlalchemy import select
+    import uuid
+
+    try:
+        # Accept tokens that expired up to 7 days ago
+        payload = jose_jwt.decode(
+            body.token,
+            settings.JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            options={"verify_exp": False},
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Enforce a hard 7-day window past expiry
+    import time
+    exp = payload.get("exp", 0)
+    if time.time() - exp > 7 * 86400:
+        raise HTTPException(status_code=401, detail="Token too old to refresh")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    new_token, new_expires_at = AuthService.create_access_token(user.id)
+    return Token(access_token=new_token, expires_at=new_expires_at)

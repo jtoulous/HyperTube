@@ -186,7 +186,7 @@ class TmdbService:
             logger.error("TMDB_API_KEY is not configured — cannot fetch details")
             return None
 
-        # ── Check cache ────────────────────────────────────────────────────
+        #  Check cache
         if imdb_id in self._cache:
             logger.debug(f"TMDB cache hit: {imdb_id}")
             return self._cache[imdb_id]
@@ -234,7 +234,7 @@ class TmdbService:
         self._cache[imdb_id] = result
         return result
 
-    # ── Normalize TMDB response to our standard shape ──────────────────────
+    #  Normalize TMDB response to our standard shape
 
     def _normalize(self, imdb_id: str, tmdb_id: int, media_type: str, data: dict) -> dict:
         title = data.get("title") or data.get("name") or ""

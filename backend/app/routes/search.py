@@ -36,7 +36,7 @@ _TMDB_SORT_MAP: dict[str, str] = {
 }
 
 
-# ─── Jackett raw torrent search ───────────────────────────────────────────────
+#  Jackett raw torrent search
 
 _ADULT_TITLE_WORDS = {"xxx", "porn", "hentai"}
 
@@ -82,7 +82,7 @@ async def search_torrents(
     return {"results": deduped, "count": len(deduped)}
 
 
-# ─── TMDB title search (returns thumbnail-ready cards) ───────────────────────
+#  TMDB title search (returns thumbnail-ready cards)
 
 @router.get("/tmdb")
 async def search_tmdb(
@@ -94,7 +94,7 @@ async def search_tmdb(
     return {"results": results, "page": page, "has_more": len(results) >= 20}
 
 
-# ─── Browse via TMDB Discover ─────────────────────────────────────────────────
+#  Browse via TMDB Discover
 
 @router.get("/browse")
 async def browse_media(
@@ -137,7 +137,7 @@ async def browse_media(
 
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+#  Helpers
 
 async def _resolve_imdbid(tmdb_id: int) -> str | None:
     """Resolve a TMDB movie ID to an IMDb ID via /movie/{id}/external_ids."""
@@ -217,7 +217,7 @@ def _sort_by_relevance(results: list, query: str, target_imdbid: str | None) -> 
     return sorted(results, key=sort_key)
 
 
-# ─── Media details ─────────────────────────────────────────────────────────────
+#  Media details
 
 @router.get("/media/{imdb_id}")
 async def get_media_details(imdb_id: str):

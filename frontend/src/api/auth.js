@@ -9,6 +9,8 @@ export const authApi = {
 
     resetPassword: (data) => api.post("/auth/reset-password", data),
 
+    refreshToken: (token) => api.post("/auth/refresh", { token }),
+
     oauth42: () => {
         const clientId = import.meta.env.VITE_FORTYTWO_UID;
         const redirectUri = window.location.origin + '/oauth-callback/42';

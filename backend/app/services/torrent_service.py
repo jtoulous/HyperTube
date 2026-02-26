@@ -23,7 +23,7 @@ class TorrentService:
         self._client: Optional[httpx.AsyncClient] = None
         self._authenticated = False
 
-    # ── context manager ──────────────────────────────────────────────
+    #  context manager
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(timeout=30)
@@ -34,7 +34,7 @@ class TorrentService:
         if self._client:
             await self._client.aclose()
 
-    # ── authentication ───────────────────────────────────────────────
+    #  authentication
 
     async def _login(self):
         """Authenticate with qBittorrent and store the session cookie."""
@@ -51,7 +51,7 @@ class TorrentService:
         self._authenticated = True
         logger.info("Authenticated with qBittorrent")
 
-    # ── helpers ──────────────────────────────────────────────────────
+    #  helpers
 
     async def _get(self, path: str, params: dict = None):
         resp = await self._client.get(f"{self._base}{path}", params=params)
@@ -63,7 +63,7 @@ class TorrentService:
         resp.raise_for_status()
         return resp
 
-    # ── torrents ─────────────────────────────────────────────────────
+    #  torrents
 
     async def add_magnet(
         self,

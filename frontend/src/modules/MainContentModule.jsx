@@ -72,7 +72,7 @@ export default function MainContentModule() {
         return ids;
     }, [downloads]);
 
-    /* ── Enrich downloads with TMDB metadata for library view ── */
+    /*  Enrich downloads with TMDB metadata for library view  */
     const enrichLibrary = useCallback(async () => {
         if (!downloads.length) { setLibraryMovies([]); return; }
         setLibraryLoading(true);
@@ -110,7 +110,7 @@ export default function MainContentModule() {
         if (currentTab === "library" && isLogged && downloads.length > 0) enrichLibrary();
     }, [currentTab, isLogged, downloads, enrichLibrary]);
 
-    /* ── Filtered / sorted library movies ── */
+    /*  Filtered / sorted library movies  */
     const filteredLibraryMovies = useMemo(() => {
         let movies = [...libraryMovies];
         const q = searchQuery.trim().toLowerCase();
@@ -241,7 +241,7 @@ export default function MainContentModule() {
         if (currentTab === "library" && isLogged) loadDownloads();
     }, [currentTab, isLogged, loadDownloads]);
 
-    /* ── Computed sidebar style ── */
+    /*  Computed sidebar style  */
     const sidebarStyle = isMobile
         ? { ...s.sidebar, ...s.sidebarMobile, ...(sidebarOpen ? {} : s.sidebarMobileClosed) }
         : { ...s.sidebar, ...(sidebarOpen ? s.sidebarOpen : s.sidebarClosed) };
@@ -353,7 +353,7 @@ export default function MainContentModule() {
                     <div style={s.searchTab}>
                         <div style={s.searchList}>
 
-                            {/* ── Phase 2: torrent list for selected movie ── */}
+                            {/*  Phase 2: torrent list for selected movie  */}
                             {torrentMode && (
                                 <div style={s.torrentContainer}>
                                     <div style={s.torrentHeader}>
@@ -398,7 +398,7 @@ export default function MainContentModule() {
                                 </div>
                             )}
 
-                            {/* ── Phase 1: TMDB thumbnail grid after search ── */}
+                            {/*  Phase 1: TMDB thumbnail grid after search  */}
                             {!torrentMode && tmdbLoading && (
                                 <div style={s.searchListStatus}>
                                     <div style={s.searchSpinner} />
@@ -426,7 +426,7 @@ export default function MainContentModule() {
                                 </div>
                             )}
 
-                            {/* ── Browse view: shown when no search yet ── */}
+                            {/*  Browse view: shown when no search yet  */}
                             {!torrentMode && !tmdbLoading && !hasSearched && (
                                 <BrowseView
                                     genre={browseGenre}
@@ -448,7 +448,7 @@ export default function MainContentModule() {
                             <div style={s.libraryError}>{downloadError}</div>
                         )}
 
-                        {/* ── Drill-down: downloads for a specific movie ── */}
+                        {/*  Drill-down: downloads for a specific movie  */}
                         {selectedLibraryMovie && (
                             <div style={s.torrentContainer}>
                                 <div style={s.torrentHeader}>
@@ -467,7 +467,7 @@ export default function MainContentModule() {
                             </div>
                         )}
 
-                        {/* ── Library movie grid ── */}
+                        {/*  Library movie grid  */}
                         {!selectedLibraryMovie && libraryLoading && (
                             <div style={s.searchListStatus}>
                                 <div style={s.searchSpinner} />

@@ -41,6 +41,10 @@ class EmailVerification(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    expires_at: int  # UTC epoch seconds
+
+class RefreshRequest(BaseModel):
+    token: str
 
 class UserResponse(BaseModel):
     id: uuid.UUID

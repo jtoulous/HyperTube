@@ -201,7 +201,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
                                 {!isSelf && <p style={styles.displayName}>{displayName}</p>}
                             </div>
 
-                            {/* ── Self-edit view ── */}
+                            {/*  Self-edit view  */}
                             {isSelf ? (
                                 <div style={styles.fieldGroup}>
                                     {/* Email (only email provider) */}
@@ -283,7 +283,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
                                     )}
                                 </div>
                             ) : (
-                                /* ── Read-only view for other users ── */
+                                /*  Read-only view for other users  */
                                 <div style={styles.fieldGroup}>
                                     <div style={styles.readOnlyRow}>
                                         <span style={styles.readOnlyLabel}>Username</span>

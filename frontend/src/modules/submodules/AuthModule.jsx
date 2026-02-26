@@ -38,7 +38,7 @@ export default function AuthModule() {
         clearMessages();
         try {
             const res = await authApi.login({ email: loginEmail, password: loginPassword });
-            setToken(res.data.token.access_token);
+            setToken(res.data.token.access_token, res.data.token.expires_at);
             setUsername(res.data.user.username);
 
         } catch (err) {
@@ -65,7 +65,7 @@ export default function AuthModule() {
                 first_name: regFirstName || undefined,
                 last_name: regLastName || undefined,
             });
-            setToken(res.data.token.access_token);
+            setToken(res.data.token.access_token, res.data.token.expires_at);
         } catch (err) {
             setError(extractError(err));
         }

@@ -24,7 +24,7 @@ export default function OAuthCallback({ provider }) {
             try {
                 const redirectUri = window.location.origin + "/oauth-callback/" + provider;
                 const res = await authApi.oauthCallback(provider, { code, redirect_uri: redirectUri });
-                setToken(res.data.token.access_token);
+                setToken(res.data.token.access_token, res.data.token.expires_at);
                 setUsername(res.data.user.username);
                 navigate("/", { replace: true });
             } catch (err) {
