@@ -1,4 +1,4 @@
-FROM linuxserver/qbittorrent:latest
+FROM linuxserver/qbittorrent:5.1.4
 
 COPY qBittorrent.conf /defaults/qBittorrent.conf
 

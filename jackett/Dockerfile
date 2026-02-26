@@ -1,4 +1,4 @@
-FROM linuxserver/jackett:latest
+FROM linuxserver/jackett:0.24.1218
 
 # Stage preconfigured settings and indexers into the image
 COPY ServerConfig.json /defaults/ServerConfig.json
