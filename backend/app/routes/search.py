@@ -27,7 +27,7 @@ _TMDB_GENRE_IDS: dict[str, int] = {
     "family":      10751,
 }
 
-# Map frontend sort keys → TMDB sort_by values
+# Map frontend sort keys to TMDB sort_by values
 _TMDB_SORT_MAP: dict[str, str] = {
     "seeders": "popularity.desc",
     "rating":  "vote_average.desc",
@@ -110,7 +110,7 @@ async def browse_media(
     genre_id  = _TMDB_GENRE_IDS.get(genre.lower()) if genre else None
     tmdb_sort = _TMDB_SORT_MAP.get(sort_by, "popularity.desc")
 
-    # Period → TMDB release date filter
+    # Period to TMDB release date filter
     date_gte: str | None = None
     date_lte: str | None = None
     if period != "all":
@@ -175,7 +175,7 @@ def _deduplicate_for_search(results: list) -> list:
 import re as _re
 
 def _normalize_title(t: str) -> str:
-    """Lowercase, strip year/quality tags, punctuation → just words."""
+    """Lowercase, strip year/quality tags, punctuation to just words."""
     t = t.lower()
     # Remove everything after common quality/codec markers
     t = _re.split(r'\b(1080p|720p|2160p|4k|uhd|bluray|brrip|bdrip|web-?dl|webrip|hdtv|remux|hevc|x264|x265|h\.?264|h\.?265|aac|dts|ac3|multi|repack)\b', t)[0]

@@ -148,7 +148,7 @@ class TorrentService:
         return {
             "hash": t["hash"],
             "name": t["name"],
-            "progress": t["progress"],          # 0.0 → 1.0
+            "progress": t["progress"],          # 0.0 to 1.0
             "state": t["state"],
             "dlspeed": t["dlspeed"],             # bytes/s
             "eta": t["eta"],                     # seconds, 8640000 = ∞

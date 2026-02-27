@@ -178,7 +178,7 @@ class DownloadService:
         tmdb = TmdbService()
         details = await tmdb.get_by_imdb(imdb_id)
 
-        # Parse duration from TMDB runtime string (e.g. "120 min" → 7200 seconds)
+        # Parse duration from TMDB runtime string (e.g. "120 min" to 7200 seconds)
         duration_sec = None
         if details and details.get("runtime"):
             try:

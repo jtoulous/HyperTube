@@ -190,7 +190,7 @@ class FilmService:
         Math (uniform-bitrate assumption):
             At time *t* after pressing play we need:
                 downloaded_fraction + (speed * t / total) >= t / duration
-            Worst case is t = duration → min_p = 1 - speed*duration/total
+            Worst case is t = duration to min_p = 1 - speed*duration/total
         """
         if film.status == "completed":
             return True, 0

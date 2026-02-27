@@ -42,12 +42,6 @@ class TmdbService:
     """
     Fetches movie/series details from the TMDB API using an IMDb ID.
     Includes an in-memory cache and a rate limiter (40 req/s TMDB limit).
-
-    Supports both auth methods:
-      - "Jeton d'accès en lecture à l'API" (Read Access Token / Bearer)
-        → long eyJ… JWT — sent as Authorization: Bearer header
-      - "Clé d'API" (API Key)
-        → short hex string — sent as ?api_key= query parameter
     """
 
     def __init__(self):
