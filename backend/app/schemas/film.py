@@ -70,3 +70,8 @@ class CommentResponse(BaseModel):
 
 class CreateCommentRequest(BaseModel):
     text: str
+    movie_id: Optional[str] = None   # imdb_id, required for POST /comments (not needed when in URL)
+
+
+class UpdateCommentRequest(BaseModel):
+    text: str

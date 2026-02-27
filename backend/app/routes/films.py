@@ -120,7 +120,7 @@ async def unmark_film_watched(
     return {"ok": True}
 
 
-# ─── Comments ────────────────────────────────────────────────────
+# ─── Comments (film-scoped, kept for convenience) ──────────────
 
 @router.get("/{imdb_id}/comments")
 async def get_comments(
@@ -138,7 +138,7 @@ async def add_comment(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Add a comment on a film."""
+    """Add a comment on a film (POST /movies/:movie_id/comments variant)."""
     text = body.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Comment cannot be empty")
@@ -155,22 +155,3 @@ async def add_comment(
         "text": comment.text,
         "created_at": comment.created_at.isoformat(),
     }
-
-
-@router.delete("/comments/{comment_id}")
-async def delete_comment(
-    comment_id: str,
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Delete a comment (only by its author)."""
-    from uuid import UUID as PyUUID
-    try:
-        cid = PyUUID(comment_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid comment ID")
-    deleted = await FilmService.delete_comment(session, cid, current_user.id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Comment not found or not yours")
-    await session.commit()
-    return {"ok": True}

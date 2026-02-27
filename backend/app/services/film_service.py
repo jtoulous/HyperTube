@@ -314,6 +314,49 @@ class FilmService:
     # ─── Comments ───────────────────────────────────────────────────
 
     @staticmethod
+    async def get_all_comments(session: AsyncSession, limit: int = 50) -> list[dict]:
+        """Return latest comments across all films, newest first."""
+        result = await session.execute(
+            select(Comment, User.username, User.profile_picture)
+            .join(User, Comment.user_id == User.id)
+            .order_by(Comment.created_at.desc())
+            .limit(limit)
+        )
+        return [
+            {
+                "id": str(row[0].id),
+                "user_id": str(row[0].user_id),
+                "username": row[1] or "Unknown",
+                "profile_picture": row[2],
+                "imdb_id": row[0].imdb_id,
+                "text": row[0].text,
+                "created_at": row[0].created_at.isoformat(),
+            }
+            for row in result.all()
+        ]
+
+    @staticmethod
+    async def get_comment_by_id(session: AsyncSession, comment_id: UUID) -> dict | None:
+        """Return a single comment by its ID."""
+        result = await session.execute(
+            select(Comment, User.username, User.profile_picture)
+            .join(User, Comment.user_id == User.id)
+            .where(Comment.id == comment_id)
+        )
+        row = result.first()
+        if not row:
+            return None
+        return {
+            "id": str(row[0].id),
+            "user_id": str(row[0].user_id),
+            "username": row[1] or "Unknown",
+            "profile_picture": row[2],
+            "imdb_id": row[0].imdb_id,
+            "text": row[0].text,
+            "created_at": row[0].created_at.isoformat(),
+        }
+
+    @staticmethod
     async def get_comments(session: AsyncSession, imdb_id: str) -> list[dict]:
         """Return all comments for a film, newest first, with username + avatar."""
         result = await session.execute(
@@ -354,3 +397,28 @@ class FilmService:
             )
         )
         return result.rowcount > 0
+
+    @staticmethod
+    async def update_comment(session: AsyncSession, comment_id: UUID, user_id: UUID, text: str) -> dict | None:
+        """Update a comment's text (only its author can edit). Returns updated comment or None."""
+        result = await session.execute(
+            select(Comment).where(Comment.id == comment_id, Comment.user_id == user_id)
+        )
+        comment = result.scalar_one_or_none()
+        if not comment:
+            return None
+        comment.text = text
+        await session.flush()
+        await session.refresh(comment)
+        # Fetch username
+        user_result = await session.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
+        return {
+            "id": str(comment.id),
+            "user_id": str(comment.user_id),
+            "username": (user.username if user else "Unknown"),
+            "profile_picture": (user.profile_picture if user else None),
+            "imdb_id": comment.imdb_id,
+            "text": comment.text,
+            "created_at": comment.created_at.isoformat(),
+        }

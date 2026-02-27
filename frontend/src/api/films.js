@@ -20,5 +20,6 @@ export const filmsApi = {
     /** Comments */
     getComments: (imdbId) => api.get(`/films/${imdbId}/comments`),
     addComment: (imdbId, text) => api.post(`/films/${imdbId}/comments`, { text }),
-    deleteComment: (commentId) => api.delete(`/films/comments/${commentId}`),
+    updateComment: (commentId, text) => api.patch(`/comments/${commentId}`, { text }),
+    deleteComment: (commentId) => api.delete(`/comments/${commentId}`),
 };
