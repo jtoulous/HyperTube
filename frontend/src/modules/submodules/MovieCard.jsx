@@ -9,7 +9,7 @@ function formatEta(seconds) {
     return m > 0 ? `${h}h${m}m` : `${h}h`;
 }
 
-export default function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick, libraryMode, filmStatus }) {
+export default function MovieCard({ result, isWatched, watchProgress, onDownload, isLogged, onCardClick, libraryMode, filmStatus }) {
     const [downloading, setDownloading] = useState(false);
     const [added, setAdded] = useState(false);
 
@@ -35,6 +35,12 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
     const canWatch = result.can_watch;   // boolean (library only)
     const progress = result.progress;    // 0-100 (library only)
     const readyIn = result.watch_ready_in;
+
+    // Watch progress (from watched_films table)
+    const stoppedAt = watchProgress?.stopped_at || 0;
+    const filmDuration = result.duration || 0;  // seconds
+    const watchPct = (filmDuration > 0 && stoppedAt > 0) ? Math.min((stoppedAt / filmDuration) * 100, 100) : 0;
+    const hasWatchProgress = !isWatched && stoppedAt > 0 && filmDuration > 0;
 
     return (
         <div
@@ -80,6 +86,18 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
                     <div style={styles.progressBarBg}>
                         <div style={{ ...styles.progressBarFill, width: `${Math.min(progress || 0, 100)}%` }} />
                     </div>
+                )}
+
+                {/* Watch progress bar (how far the user watched) */}
+                {hasWatchProgress && (
+                    <>
+                        <div style={styles.watchProgressBadge}>
+                            ▶ {Math.round(watchPct)}%
+                        </div>
+                        <div style={styles.watchProgressBarBg}>
+                            <div style={{ ...styles.watchProgressBarFill, width: `${watchPct}%` }} />
+                        </div>
+                    </>
                 )}
 
                 {result.imdb_rating && result.imdb_rating !== "N/A" && (
@@ -264,6 +282,32 @@ const styles = {
         height: "100%",
         background: "#007BFF",
         transition: "width 1s ease",
+    },
+    watchProgressBadge: {
+        position: "absolute",
+        bottom: 6,
+        left: 6,
+        background: "rgba(0, 123, 255, 0.88)",
+        color: "#fff",
+        fontSize: "0.62rem",
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 10,
+        letterSpacing: "0.03em",
+        backdropFilter: "blur(4px)",
+    },
+    watchProgressBarBg: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 3,
+        background: "rgba(0, 0, 0, 0.5)",
+    },
+    watchProgressBarFill: {
+        height: "100%",
+        background: "#007BFF",
+        transition: "width 0.3s ease",
     },
     ratingBadge: {
         position: "absolute",

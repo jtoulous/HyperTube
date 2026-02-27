@@ -28,12 +28,13 @@ function buildUrl(filename, resolution, audioTrack, start) {
     return `/api/v1/stream/${filename}?${p}`;
 }
 
-export default function PlayerModule({ filename }) {
+export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }) {
     const videoRef      = useRef(null);
     const containerRef  = useRef(null);
     const seekRef       = useRef(null);
     const hideTimerRef  = useRef(null);
     const wasPlayingRef = useRef(false); // remember play state across stream reloads
+    const initialTimeApplied = useRef(false);
 
     // Inject keyframe animation for the spinner once
     useEffect(() => {
@@ -75,12 +76,15 @@ export default function PlayerModule({ filename }) {
 
     const streamUrl = buildUrl(filename, resolution, audioTrack, startParam);
 
-    // Fetch file info (duration + audio tracks)
+    // Fetch file info (duration + audio tracks), then resume from initialTime if set
     useEffect(() => {
-        setTimeOffset(0);
-        setStartParam(0);
+        initialTimeApplied.current = false;
         setAudioTrack(0);
         setResolution("original");
+
+        const resumeTime = initialTime || 0;
+        setTimeOffset(resumeTime);
+        setStartParam(resumeTime);
 
         fetch(`/api/v1/stream/info/${filename}`)
             .then(r => r.json())
@@ -179,6 +183,28 @@ export default function PlayerModule({ filename }) {
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [absTime, totalDuration]);
+
+    // Report playback position periodically (every 15s) and on unmount
+    const absTimeRef = useRef(0);
+    const totalDurationRef = useRef(0);
+    absTimeRef.current = absTime;
+    totalDurationRef.current = totalDuration;
+
+    useEffect(() => {
+        if (!onTimeReport) return;
+
+        const interval = setInterval(() => {
+            const t = absTimeRef.current;
+            if (t > 0) onTimeReport(Math.floor(t), totalDurationRef.current);
+        }, 15000);
+
+        return () => {
+            clearInterval(interval);
+            // Report final position on unmount
+            const t = absTimeRef.current;
+            if (t > 0) onTimeReport(Math.floor(t), totalDurationRef.current);
+        };
+    }, [onTimeReport]);
 
     // Controls auto-hide
     const showControls = useCallback(() => {

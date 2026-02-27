@@ -7,16 +7,13 @@ from app.models.film import Film, WatchedFilm
 
 logger = logging.getLogger(__name__)
 
-# Safety factor: only count 90% of current download speed to leave margin for fluctuations
 SPEED_SAFETY_FACTOR = 0.90
-# Minimum buffer: require at least 2% extra beyond the theoretical minimum
 BUFFER_MARGIN = 0.02
+WATCHED_THRESHOLD_SECONDS = 300
 
 
 class FilmService:
     """Manages the global film catalogue and per-user watched tracking."""
-
-    # ── film catalogue ────────────────────────────────────────────
 
     @staticmethod
     async def upsert_film(
@@ -175,8 +172,6 @@ class FilmService:
         )
         return result.scalar_one_or_none()
 
-    # ── can-watch computation ──────────────────────────────────
-
     @staticmethod
     def compute_can_watch(film: Film) -> tuple[bool, int | None]:
         """
@@ -236,41 +231,73 @@ class FilmService:
         ready_in = int(deficit_bytes / dlspeed) + 1
         return False, ready_in
 
-    # ── watched tracking ──────────────────────────────────────
-
     @staticmethod
-    async def mark_watched(session: AsyncSession, user_id: UUID, imdb_id: str) -> WatchedFilm:
-        """Mark a film as watched by a user (idempotent)."""
+    async def mark_watched(
+        session: AsyncSession, user_id: UUID, imdb_id: str, stopped_at: int = 0
+    ) -> WatchedFilm:
+        """Mark a film as watched by a user (idempotent on user+imdb_id).
+
+        Automatically sets is_completed=True when the remaining time
+        (film.duration − stopped_at) is less than 5 minutes.
+        """
+        # Look up the film to get duration for is_completed computation
+        is_completed = False
+        film = await session.execute(
+            select(Film).where(Film.imdb_id == imdb_id)
+        )
+        film_row = film.scalar_one_or_none()
+        if film_row and film_row.duration and film_row.duration > 0:
+            remaining = film_row.duration - stopped_at
+            if remaining <= WATCHED_THRESHOLD_SECONDS:
+                is_completed = True
+
         stmt = pg_insert(WatchedFilm).values(
             user_id=user_id,
             imdb_id=imdb_id,
-        ).on_conflict_do_nothing(
+            stopped_at=stopped_at,
+            is_completed=is_completed,
+        ).on_conflict_do_update(
             constraint="uq_user_watched_film",
+            set_=dict(
+                stopped_at=stopped_at,
+                is_completed=is_completed,
+            ),
         ).returning(WatchedFilm)
 
         result = await session.execute(stmt)
-        film = result.scalar_one_or_none()
+        watched = result.scalar_one()
 
-        if film is None:
-            # Already existed, fetch it
-            result2 = await session.execute(
-                select(WatchedFilm).where(
-                    WatchedFilm.user_id == user_id,
-                    WatchedFilm.imdb_id == imdb_id,
-                )
-            )
-            film = result2.scalar_one()
-
-        logger.info(f"Marked watched: user={user_id}, imdb_id={imdb_id}")
-        return film
+        logger.info(
+            f"Marked watched: user={user_id}, imdb_id={imdb_id}, "
+            f"stopped_at={stopped_at}, is_completed={is_completed}"
+        )
+        return watched
 
     @staticmethod
-    async def get_watched_imdb_ids(session: AsyncSession, user_id: UUID) -> list[str]:
-        """Return the list of imdb_ids that a user has watched."""
+    async def update_progress(
+        session: AsyncSession, user_id: UUID, imdb_id: str, stopped_at: int
+    ) -> WatchedFilm:
+        """Update playback position for a film the user is watching.
+
+        Creates the watched_films row if it doesn't exist yet.
+        Automatically sets is_completed when remaining < 5 min.
+        """
+        return await FilmService.mark_watched(session, user_id, imdb_id, stopped_at)
+
+    @staticmethod
+    async def get_watched_imdb_ids(session: AsyncSession, user_id: UUID) -> list[dict]:
+        """Return the list of watched films with their status for a user."""
         result = await session.execute(
-            select(WatchedFilm.imdb_id).where(WatchedFilm.user_id == user_id)
+            select(
+                WatchedFilm.imdb_id,
+                WatchedFilm.stopped_at,
+                WatchedFilm.is_completed,
+            ).where(WatchedFilm.user_id == user_id)
         )
-        return [row[0] for row in result.all()]
+        return [
+            {"imdb_id": row[0], "stopped_at": row[1], "is_completed": row[2]}
+            for row in result.all()
+        ]
 
     @staticmethod
     async def unmark_watched(session: AsyncSession, user_id: UUID, imdb_id: str) -> bool:

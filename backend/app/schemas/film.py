@@ -37,6 +37,8 @@ class WatchedFilmResponse(BaseModel):
     id: UUID
     user_id: UUID
     imdb_id: str
+    stopped_at: int = 0
+    is_completed: bool = False
     watched_at: datetime
 
     class Config:
@@ -45,3 +47,9 @@ class WatchedFilmResponse(BaseModel):
 
 class MarkWatchedRequest(BaseModel):
     imdb_id: str
+    stopped_at: Optional[int] = 0
+
+
+class UpdateProgressRequest(BaseModel):
+    imdb_id: str
+    stopped_at: int

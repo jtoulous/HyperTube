@@ -85,7 +85,8 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
                     <MovieCard
                         key={result.tmdb_id || result.imdbid || idx}
                         result={result}
-                        isWatched={!!(result.imdbid && watchedImdbIds.has(result.imdbid))}
+                        isWatched={!!(result.imdbid && watchedImdbIds.get(result.imdbid)?.is_completed)}
+                        watchProgress={result.imdbid ? watchedImdbIds.get(result.imdbid) : undefined}
                         filmStatus={result.imdbid && filmStatusMap ? filmStatusMap.get(result.imdbid) : undefined}
                         onDownload={onDownload}
                         isLogged={isLogged}

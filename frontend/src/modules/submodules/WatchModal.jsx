@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import PlayerModule from "./PlayerModule";
 import { formatSize } from "./utils";
 
-export default function WatchModal({ file, title, allFiles, onFileChange, onClose }) {
+export default function WatchModal({ file, title, allFiles, onFileChange, onClose, onTimeReport, initialTime = 0 }) {
     useEffect(() => {
         const onKey = (e) => { if (e.key === "Escape") onClose(); };
         document.addEventListener("keydown", onKey);
@@ -74,7 +74,7 @@ export default function WatchModal({ file, title, allFiles, onFileChange, onClos
                                 ))}
                             </select>
                         )}
-                        <PlayerModule filename={file.name} />
+                        <PlayerModule filename={file.name} onTimeReport={onTimeReport} initialTime={initialTime} />
                     </>
                 )}
             </div>

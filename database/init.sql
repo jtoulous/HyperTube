@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS watched_films (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     imdb_id VARCHAR(20) NOT NULL,
+    stopped_at INTEGER DEFAULT 0,         -- playback position in seconds where user stopped
+    is_completed BOOLEAN DEFAULT FALSE,   -- true if user watched to near the end (<5min remaining)
     watched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_user_watched_film UNIQUE (user_id, imdb_id)
 );

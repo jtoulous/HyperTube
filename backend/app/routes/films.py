@@ -6,7 +6,7 @@ from app.models.user import User
 from app.security import get_current_user
 from app.services.film_service import FilmService
 from app.services.torrent_service import TorrentService
-from app.schemas.film import FilmResponse, WatchedFilmResponse, MarkWatchedRequest
+from app.schemas.film import FilmResponse, WatchedFilmResponse, MarkWatchedRequest, UpdateProgressRequest
 import logging
 
 logger = logging.getLogger(__name__)
@@ -73,12 +73,12 @@ async def get_film_files(
     return {"files": video_files}
 
 
-@router.get("/watched", response_model=list[str])
+@router.get("/watched", response_model=list[dict])
 async def get_watched_films(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return list of IMDb IDs the current user has watched."""
+    """Return list of watched films with stopped_at and is_completed."""
     return await FilmService.get_watched_imdb_ids(session, current_user.id)
 
 
@@ -89,7 +89,19 @@ async def mark_film_watched(
     current_user: User = Depends(get_current_user),
 ):
     """Mark a film as watched by the current user."""
-    film = await FilmService.mark_watched(session, current_user.id, body.imdb_id)
+    film = await FilmService.mark_watched(session, current_user.id, body.imdb_id, body.stopped_at or 0)
+    await session.commit()
+    return film
+
+
+@router.put("/watched/progress", response_model=WatchedFilmResponse)
+async def update_watch_progress(
+    body: UpdateProgressRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update playback position for a film. Auto-marks completed if <5min remaining."""
+    film = await FilmService.update_progress(session, current_user.id, body.imdb_id, body.stopped_at)
     await session.commit()
     return film
 

@@ -60,7 +60,7 @@ export default function MainContentModule() {
     const [libraryMovies, setLibraryMovies] = useState([]);
     const [libraryLoading, setLibraryLoading] = useState(false);
 
-    const [watchedImdbIds, setWatchedImdbIds] = useState(new Set());
+    const [watchedImdbIds, setWatchedImdbIds] = useState(new Map());
 
     /* Player state for watching from library */
     const [playerFile, setPlayerFile] = useState(null);
@@ -73,7 +73,9 @@ export default function MainContentModule() {
         if (!isLogged) return;
         try {
             const res = await filmsApi.getWatchedIds();
-            setWatchedImdbIds(new Set(res.data || []));
+            const map = new Map();
+            (res.data || []).forEach(w => map.set(w.imdb_id, w));
+            setWatchedImdbIds(map);
         } catch (err) {
             console.error("Failed to load watched IDs:", err);
         }
@@ -99,6 +101,7 @@ export default function MainContentModule() {
                 download_speed: f.download_speed,
                 can_watch: f.can_watch,
                 watch_ready_in: f.watch_ready_in,
+                duration: f.duration,
                 eta: f.eta,
             }));
             setLibraryMovies(films);
@@ -237,13 +240,39 @@ export default function MainContentModule() {
 
     const handleMarkWatched = useCallback(async (imdbId) => {
         if (!isLogged || !imdbId) return;
+        // If the user already has a watched entry, don't reset their progress
+        if (watchedImdbIds.has(imdbId)) return;
         try {
-            await filmsApi.markWatched(imdbId);
-            setWatchedImdbIds(prev => new Set([...prev, imdbId]));
+            await filmsApi.markWatched(imdbId, 0);
+            setWatchedImdbIds(prev => {
+                const next = new Map(prev);
+                next.set(imdbId, { imdb_id: imdbId, stopped_at: 0, is_completed: false });
+                return next;
+            });
         } catch (err) {
             console.error("Failed to mark watched:", err);
         }
-    }, [isLogged]);
+    }, [isLogged, watchedImdbIds]);
+
+    /** Report playback progress from the player — called periodically and on unmount */
+    const handleTimeReport = useCallback(async (stoppedAt, duration) => {
+        if (!isLogged || !playerImdbId) return;
+        try {
+            const res = await filmsApi.updateProgress(playerImdbId, stoppedAt);
+            const d = res.data;
+            setWatchedImdbIds(prev => {
+                const next = new Map(prev);
+                next.set(playerImdbId, {
+                    imdb_id: playerImdbId,
+                    stopped_at: d.stopped_at ?? stoppedAt,
+                    is_completed: d.is_completed ?? false,
+                });
+                return next;
+            });
+        } catch (err) {
+            console.error("Failed to update progress:", err);
+        }
+    }, [isLogged, playerImdbId]);
 
     /** Open the file picker for a film from the library */
     const handleWatchFilm = useCallback(async (movie) => {
@@ -443,7 +472,8 @@ export default function MainContentModule() {
                                         <MovieCard
                                             key={result.tmdb_id || idx}
                                             result={result}
-                                            isWatched={!!(result.imdbid && watchedImdbIds.has(result.imdbid))}
+                                            isWatched={!!(result.imdbid && watchedImdbIds.get(result.imdbid)?.is_completed)}
+                                            watchProgress={result.imdbid ? watchedImdbIds.get(result.imdbid) : undefined}
                                             filmStatus={result.imdbid ? filmStatusMap.get(result.imdbid) : undefined}
                                             onDownload={handleDownload}
                                             isLogged={isLogged}
@@ -495,7 +525,8 @@ export default function MainContentModule() {
                                         <MovieCard
                                             key={movie.imdbid || movie.title || idx}
                                             result={movie}
-                                            isWatched={!!(movie.imdbid && watchedImdbIds.has(movie.imdbid))}
+                                            isWatched={!!(movie.imdbid && watchedImdbIds.get(movie.imdbid)?.is_completed)}
+                                            watchProgress={movie.imdbid ? watchedImdbIds.get(movie.imdbid) : undefined}
                                             isLogged={isLogged}
                                             onCardClick={movie.can_watch ? () => handleWatchFilm(movie) : undefined}
                                             libraryMode
@@ -518,6 +549,8 @@ export default function MainContentModule() {
                         setPlayerFile(f);
                         if (f && playerImdbId) handleMarkWatched(playerImdbId);
                     }}
+                    onTimeReport={handleTimeReport}
+                    initialTime={playerImdbId ? (watchedImdbIds.get(playerImdbId)?.stopped_at || 0) : 0}
                     onClose={() => { setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); }}
                 />
             )}

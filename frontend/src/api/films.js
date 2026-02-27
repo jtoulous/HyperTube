@@ -9,7 +9,11 @@ export const filmsApi = {
 
     getWatchedIds: () => api.get("/films/watched"),
 
-    markWatched: (imdbId) => api.post("/films/watched", { imdb_id: imdbId }),
+    markWatched: (imdbId, stoppedAt = 0) =>
+        api.post("/films/watched", { imdb_id: imdbId, stopped_at: stoppedAt }),
+
+    updateProgress: (imdbId, stoppedAt) =>
+        api.put("/films/watched/progress", { imdb_id: imdbId, stopped_at: stoppedAt }),
 
     unmarkWatched: (imdbId) => api.delete(`/films/watched/${imdbId}`),
 };
