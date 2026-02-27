@@ -127,6 +127,66 @@ class TmdbService:
             results.append(brief)
         return results
 
+    async def find_imdb_by_title(self, title: str, year: int | None = None) -> str | None:
+        """
+        Search TMDB for a movie/TV show by title (+ optional year) and return
+        the IMDb ID of the best match, or None if nothing is found.
+        Uses /search/movie first, then /search/tv as a fallback.
+        """
+        if not title or not self._api_key:
+            return None
+
+        cache_key = f"_title_lookup:{title}:{year}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                # Try movie first
+                params: dict = {"query": title, "include_adult": "false"}
+                if year:
+                    params["year"] = str(year)
+
+                resp = await self._get(client, f"{TMDB_BASE}/search/movie", params)
+                data = resp.json()
+                results = data.get("results", [])
+
+                tmdb_id = None
+                media_type = "movie"
+
+                if results:
+                    tmdb_id = results[0]["id"]
+                else:
+                    # Fallback: search TV
+                    tv_params: dict = {"query": title, "include_adult": "false"}
+                    if year:
+                        tv_params["first_air_date_year"] = str(year)
+                    resp = await self._get(client, f"{TMDB_BASE}/search/tv", tv_params)
+                    data = resp.json()
+                    tv_results = data.get("results", [])
+                    if tv_results:
+                        tmdb_id = tv_results[0]["id"]
+                        media_type = "tv"
+
+                if not tmdb_id:
+                    self._cache[cache_key] = None
+                    return None
+
+                # Fetch external IDs to get the IMDb ID
+                resp = await self._get(
+                    client,
+                    f"{TMDB_BASE}/{media_type}/{tmdb_id}/external_ids",
+                )
+                ext = resp.json()
+                imdb_id = ext.get("imdb_id") or None
+                self._cache[cache_key] = imdb_id
+                return imdb_id
+
+        except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            logger.error(f"TMDB find_imdb_by_title error for '{title}' ({year}): {e}")
+            self._cache[cache_key] = None
+            return None
+
     async def discover(
         self,
         genre_id: Optional[int] = None,

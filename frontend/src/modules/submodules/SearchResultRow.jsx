@@ -23,15 +23,18 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
         }
     };
 
+    // Effective IMDb ID: prefer Jackett's, fall back to guessit's
+    const effectiveImdbId = result.imdbid || result.guessed_imdbid;
+
     const handleToggle = () => {
-        if (!isExpanded && result.imdbid && !mediaDetails && !loadingDetails) {
+        if (!isExpanded && effectiveImdbId && !mediaDetails && !loadingDetails) {
             setLoadingDetails(true);
             setDetailsError(null);
-            searchApi.getMediaDetails(result.imdbid)
+            searchApi.getMediaDetails(effectiveImdbId)
                 .then(res => setMediaDetails(res.data))
                 .catch((err) => {
                     const msg = err?.response?.data?.detail || err?.message || "Could not load details";
-                    console.error("TMDB fetch error:", result.imdbid, msg);
+                    console.error("TMDB fetch error:", effectiveImdbId, msg);
                     setDetailsError(msg);
                 })
                 .finally(() => setLoadingDetails(false));
@@ -64,7 +67,19 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
             <div style={styles.header} onClick={handleToggle}>
                 <div style={styles.titleArea}>
                     <span style={styles.title}>{result.title}</span>
+                    {result.match_quality === "exact" && (
+                        <span style={styles.matchExactBadge}>✓ Match</span>
+                    )}
+                    {result.match_quality === "different" && (
+                        <span style={styles.matchDiffBadge}>✗ Different</span>
+                    )}
+                    {result.match_quality === "unknown" && !effectiveImdbId && (
+                        <span style={styles.noMatchBadge}>? No ID</span>
+                    )}
                     {result.imdbid && <span style={styles.imdbBadge}>IMDb</span>}
+                    {!result.imdbid && result.guessed_imdbid && (
+                        <span style={styles.guessedBadge}>Guessed</span>
+                    )}
                 </div>
                 <div style={styles.meta}>
                     <span style={{ ...styles.metaItem, ...styles.seeders }} title="Seeders">▲ {result.seeders}</span>
@@ -91,7 +106,7 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                 }}
             >
                 <div style={styles.detailsInner}>
-                    {!result.imdbid && (
+                    {!effectiveImdbId && (
                         <div style={styles.torrentInfoOnly}>
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Published</span><span style={styles.infoValue}>{formatDate(result.pub_date)}</span></div>
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Category</span><span style={styles.infoValue}>{result.category || "—"}</span></div>
@@ -99,7 +114,7 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                             {isLogged && (result.magneturl || result.torrenturl) && (
                                 <button
                                     style={{ ...styles.magnetBtn, ...(dlSuccess ? styles.magnetBtnSuccess : {}), ...(hoverBtn === "noImdb" && !dlSuccess ? styles.magnetBtnHover : {}), ...((dlLoading || dlSuccess) ? styles.magnetBtnDisabled : {}) }}
-                                    onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid, result.torrenturl)}
+                                    onClick={() => handleDownloadClick(result.title, result.magneturl, effectiveImdbId, result.torrenturl)}
                                     onMouseEnter={() => setHoverBtn("noImdb")}
                                     onMouseLeave={() => setHoverBtn(null)}
                                     disabled={dlLoading || dlSuccess}
@@ -111,18 +126,18 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                         </div>
                     )}
 
-                    {result.imdbid && loadingDetails && (
+                    {effectiveImdbId && loadingDetails && (
                         <div style={styles.detailsLoading}>
                             <div style={styles.detailsSpinner} />
                             <span>Loading details...</span>
                         </div>
                     )}
 
-                    {result.imdbid && detailsError && !loadingDetails && (
+                    {effectiveImdbId && detailsError && !loadingDetails && (
                         <div style={styles.detailsError}>{detailsError}</div>
                     )}
 
-                    {result.imdbid && mediaDetails && !loadingDetails && (
+                    {effectiveImdbId && mediaDetails && !loadingDetails && (
                         <div style={styles.mediaDetails}>
                             {mediaDetails.poster && mediaDetails.poster !== "N/A" && (
                                 <img style={styles.poster} src={mediaDetails.poster} alt={mediaDetails.title} />
@@ -180,7 +195,7 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                                     {isLogged && (result.magneturl || result.torrenturl) && (
                                         <button
                                             style={{ ...styles.magnetBtn, ...(dlSuccess ? styles.magnetBtnSuccess : {}), ...(hoverBtn === "imdb" && !dlSuccess ? styles.magnetBtnHover : {}), ...((dlLoading || dlSuccess) ? styles.magnetBtnDisabled : {}) }}
-                                            onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid, result.torrenturl)}
+                                            onClick={() => handleDownloadClick(result.title, result.magneturl, effectiveImdbId, result.torrenturl)}
                                             onMouseEnter={() => setHoverBtn("imdb")}
                                             onMouseLeave={() => setHoverBtn(null)}
                                             disabled={dlLoading || dlSuccess}
@@ -236,6 +251,50 @@ const styles = {
         fontWeight: 700,
         color: "#000",
         background: "#f5c518",
+        borderRadius: 3,
+        padding: "1px 5px",
+        letterSpacing: "0.5px",
+        flexShrink: 0,
+        lineHeight: 1.4,
+    },
+    matchExactBadge: {
+        fontSize: "0.64rem",
+        fontWeight: 700,
+        color: "#fff",
+        background: "#238636",
+        borderRadius: 3,
+        padding: "1px 5px",
+        letterSpacing: "0.5px",
+        flexShrink: 0,
+        lineHeight: 1.4,
+    },
+    matchDiffBadge: {
+        fontSize: "0.64rem",
+        fontWeight: 700,
+        color: "#fff",
+        background: "#da3633",
+        borderRadius: 3,
+        padding: "1px 5px",
+        letterSpacing: "0.5px",
+        flexShrink: 0,
+        lineHeight: 1.4,
+    },
+    noMatchBadge: {
+        fontSize: "0.64rem",
+        fontWeight: 700,
+        color: "#8b949e",
+        background: "#21262d",
+        borderRadius: 3,
+        padding: "1px 5px",
+        letterSpacing: "0.5px",
+        flexShrink: 0,
+        lineHeight: 1.4,
+    },
+    guessedBadge: {
+        fontSize: "0.64rem",
+        fontWeight: 700,
+        color: "#a371f7",
+        background: "rgba(163, 113, 247, 0.1)",
         borderRadius: 3,
         padding: "1px 5px",
         letterSpacing: "0.5px",

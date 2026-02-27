@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Query, HTTPException
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
+from guessit import guessit
 from app.services.jackett_service import JackettService
 from app.services.tmdb_service import TmdbService
 
@@ -74,10 +76,22 @@ async def search_torrents(
 
     deduped = _deduplicate_for_search(results)
 
-    # If a tmdb_id was provided, resolve it to an IMDb ID and sort by relevance
+    # Resolve the target TMDB ID to an IMDb ID if provided
+    target_imdbid = None
     if tmdb_id:
         target_imdbid = await _resolve_imdbid(tmdb_id)
-        deduped = _sort_by_relevance(deduped, query, target_imdbid)
+
+    # Enrich torrents that have no IMDb ID using guessit + TMDB lookup
+    deduped = await _enrich_missing_imdb(deduped)
+
+    # Assign match_quality to every result based on the target IMDb ID
+    for r in deduped:
+        r["match_quality"] = _compute_match_quality(r, target_imdbid)
+
+    # Sort: exact matches first, then unknown, then different
+    # Within each tier, sort by seeders descending
+    tier_order = {"exact": 0, "unknown": 1, "different": 2}
+    deduped.sort(key=lambda r: (tier_order.get(r["match_quality"], 1), -r.get("seeders", 0)))
 
     return {"results": deduped, "count": len(deduped)}
 
@@ -215,6 +229,78 @@ def _sort_by_relevance(results: list, query: str, target_imdbid: str | None) -> 
         return (-has_imdb_match, -title_score, -seeders)
 
     return sorted(results, key=sort_key)
+
+
+#  Guessit enrichment — resolve IMDb IDs for torrents that lack one
+
+# Cache guessit->TMDB lookups to avoid redundant requests within a single search
+_guessit_cache: dict[str, str | None] = {}
+
+async def _guess_imdb_for_title(title: str) -> str | None:
+    """Use guessit to parse a torrent title and look up the IMDb ID via TMDB."""
+    try:
+        info = guessit(title)
+    except Exception:
+        return None
+
+    movie_title = info.get("title")
+    if not movie_title:
+        return None
+
+    year = info.get("year")
+    cache_key = f"{movie_title.lower()}:{year}"
+    if cache_key in _guessit_cache:
+        return _guessit_cache[cache_key]
+
+    imdb_id = await tmdb.find_imdb_by_title(movie_title, year)
+    _guessit_cache[cache_key] = imdb_id
+    return imdb_id
+
+
+async def _enrich_missing_imdb(results: list[dict]) -> list[dict]:
+    """
+    For every result that has no imdbid, try to resolve one via guessit + TMDB.
+    Resolved IDs are stored as `guessed_imdbid` (the original `imdbid` stays None
+    so we know it was inferred, not provided by Jackett).
+    Runs lookups concurrently with a concurrency cap.
+    """
+    sem = asyncio.Semaphore(8)   # max 8 concurrent TMDB lookups
+
+    async def _enrich_one(r: dict):
+        if r.get("imdbid"):
+            # Already has an ID from Jackett — nothing to do
+            r["guessed_imdbid"] = r["imdbid"]
+            return
+        async with sem:
+            guessed = await _guess_imdb_for_title(r.get("title", ""))
+            r["guessed_imdbid"] = guessed
+
+    await asyncio.gather(*[_enrich_one(r) for r in results])
+    return results
+
+
+def _compute_match_quality(r: dict, target_imdbid: str | None) -> str:
+    """
+    Return one of:
+      "exact"     — the torrent's (original or guessed) IMDb ID matches the target
+      "unknown"   — no IMDb ID could be determined at all
+      "different" — an IMDb ID was found but it doesn't match the target
+    If there is no target (no tmdb_id was passed), treat everything with an ID
+    as "exact" and everything without as "unknown".
+    """
+    effective_id = r.get("guessed_imdbid") or r.get("imdbid")
+
+    if not target_imdbid:
+        # No target to compare — can't classify as exact/different
+        return "unknown"
+
+    if not effective_id:
+        return "unknown"
+
+    if effective_id == target_imdbid:
+        return "exact"
+
+    return "different"
 
 
 #  Media details

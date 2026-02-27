@@ -36,5 +36,8 @@ httpx==0.27.0
 # Torrent file parsing
 bencodepy==0.9.5
 
+# Torrent title parsing (guess movie name, year, quality, etc.)
+guessit==3.8.0
+
 # Security / Rate Limiting
 slowapi==0.1.9
