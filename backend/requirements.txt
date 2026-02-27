@@ -33,5 +33,8 @@ prometheus-fastapi-instrumentator==6.1.0
 # HTTP client
 httpx==0.27.0
 
+# Torrent file parsing
+bencodepy==0.9.5
+
 # Security / Rate Limiting
 slowapi==0.1.9

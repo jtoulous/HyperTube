@@ -30,6 +30,7 @@ async def create_download(
             user_id=current_user.id,
             title=data.title,
             magnet_link=data.magnet_link,
+            torrent_url=data.torrent_url,
             imdb_id=data.imdb_id,
         )
         await session.commit()

@@ -24,7 +24,7 @@ class Download(Base):
 
     title = Column(String(512), nullable=False)
     imdb_id = Column(String(20), nullable=True, index=True)  # e.g., "tt1375666"
-    magnet_link = Column(Text, nullable=False)
+    magnet_link = Column(Text, nullable=True)  # Null when using torrent_url instead
     torrent_hash = Column(String(64), nullable=False, index=True)  # qBittorrent hash
 
     status = Column(SQLEnum(DownloadStatus, create_type=False, native_enum=False), default=DownloadStatus.DOWNLOADING, nullable=False)

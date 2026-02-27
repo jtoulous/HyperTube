@@ -19,41 +19,71 @@ class DownloadService:
         session: AsyncSession,
         user_id: UUID,
         title: str,
-        magnet_link: str,
+        magnet_link: str | None = None,
+        torrent_url: str | None = None,
         imdb_id: str | None = None,
     ) -> Download:
         """
         Add a torrent to qBittorrent and create a Download record.
+        Prefers magnet links; falls back to .torrent URL if no magnet.
         If the user already has a download with this hash, return it.
         Also registers the film in the global catalogue immediately.
         """
-        # Extract torrent hash from magnet link
-        torrent_hash = self._get_hash_from_magnet(magnet_link)
-        if not torrent_hash:
-            logger.error(f"Could not extract hash from magnet: {magnet_link[:80]}…")
-            raise Exception("Invalid magnet link format")
+        torrent_hash: str | None = None
 
-        # Check if this user already has a download with this hash
-        existing = await session.execute(
-            select(Download).where(
-                and_(Download.user_id == user_id, Download.torrent_hash == torrent_hash)
+        if magnet_link:
+            # Extract torrent hash from magnet link
+            torrent_hash = self._get_hash_from_magnet(magnet_link)
+            if not torrent_hash:
+                logger.error(f"Could not extract hash from magnet: {magnet_link[:80]}…")
+                raise Exception("Invalid magnet link format")
+        elif not torrent_url:
+            raise Exception("Either magnet_link or torrent_url is required")
+
+        # If we already know the hash, check for an existing download
+        if torrent_hash:
+            existing = await session.execute(
+                select(Download).where(
+                    and_(Download.user_id == user_id, Download.torrent_hash == torrent_hash)
+                )
             )
-        )
-        existing_download = existing.scalar_one_or_none()
-        if existing_download:
-            logger.info(f"Download already exists for user {user_id}: {torrent_hash}")
-            return existing_download
+            existing_download = existing.scalar_one_or_none()
+            if existing_download:
+                logger.info(f"Download already exists for user {user_id}: {torrent_hash}")
+                return existing_download
 
-        # Add magnet to qBittorrent
+        # Add to qBittorrent
         async with TorrentService() as ts:
-            success = await ts.add_magnet(
-                magnet_link,
-                category=f"hypertube-{user_id}",
-                tags=f"user:{user_id}",
-            )
-            if not success:
-                logger.error(f"Failed to add magnet: {magnet_link[:80]}…")
-                raise Exception("Failed to add torrent to download client")
+            if magnet_link and torrent_hash:
+                success = await ts.add_magnet(
+                    magnet_link,
+                    category=f"hypertube-{user_id}",
+                    tags=f"user:{user_id}",
+                )
+                if not success:
+                    logger.error(f"Failed to add magnet: {magnet_link[:80]}…")
+                    raise Exception("Failed to add torrent to download client")
+            else:
+                # Fallback: download .torrent file and upload to qBittorrent
+                torrent_hash = await ts.add_torrent_url(
+                    torrent_url,
+                    category=f"hypertube-{user_id}",
+                    tags=f"user:{user_id}",
+                )
+                if not torrent_hash:
+                    logger.error(f"Failed to add torrent from URL: {torrent_url[:120]}…")
+                    raise Exception("Failed to add torrent file to download client")
+
+                # Check for existing download now that we know the hash
+                existing = await session.execute(
+                    select(Download).where(
+                        and_(Download.user_id == user_id, Download.torrent_hash == torrent_hash)
+                    )
+                )
+                existing_download = existing.scalar_one_or_none()
+                if existing_download:
+                    logger.info(f"Download already exists for user {user_id}: {torrent_hash}")
+                    return existing_download
 
         # Create Download record
         download = Download(

@@ -11,13 +11,14 @@ class DownloadStatusEnum(str, Enum):
 
 class DownloadCreate(BaseModel):
     title: str
-    magnet_link: str
+    magnet_link: str | None = None
+    torrent_url: str | None = None
     imdb_id: str | None = None
 
 class DownloadResponse(BaseModel):
     id: UUID
     title: str
-    magnet_link: str
+    magnet_link: str | None = None
     imdb_id: str | None
     torrent_hash: str
     status: DownloadStatusEnum

@@ -11,11 +11,11 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
     const [dlSuccess, setDlSuccess] = useState(false);
     const [dlLoading, setDlLoading] = useState(false);
 
-    const handleDownloadClick = async (title, magneturl, imdbid) => {
+    const handleDownloadClick = async (title, magneturl, imdbid, torrenturl) => {
         if (dlLoading || dlSuccess) return;
         setDlLoading(true);
         try {
-            await onDownload(title, magneturl, imdbid);
+            await onDownload(title, magneturl, imdbid, torrenturl);
             setDlSuccess(true);
             setTimeout(() => setDlSuccess(false), 3000);
         } finally {
@@ -96,16 +96,16 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Published</span><span style={styles.infoValue}>{formatDate(result.pub_date)}</span></div>
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Category</span><span style={styles.infoValue}>{result.category || "—"}</span></div>
                             <div style={styles.infoRow}><span style={styles.infoLabel}>Source</span><span style={styles.infoValue}>{result.indexer || "—"}</span></div>
-                            {isLogged && result.magneturl && (
+                            {isLogged && (result.magneturl || result.torrenturl) && (
                                 <button
                                     style={{ ...styles.magnetBtn, ...(dlSuccess ? styles.magnetBtnSuccess : {}), ...(hoverBtn === "noImdb" && !dlSuccess ? styles.magnetBtnHover : {}), ...((dlLoading || dlSuccess) ? styles.magnetBtnDisabled : {}) }}
-                                    onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid)}
+                                    onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid, result.torrenturl)}
                                     onMouseEnter={() => setHoverBtn("noImdb")}
                                     onMouseLeave={() => setHoverBtn(null)}
                                     disabled={dlLoading || dlSuccess}
                                     title="Download torrent"
                                 >
-                                    {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : "🧲 Download"}
+                                    {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : result.magneturl ? "🧲 Download" : "⬇ Download (.torrent)"}
                                 </button>
                             )}
                         </div>
@@ -177,16 +177,16 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                                 <div style={styles.torrentSection}>
                                     <div style={styles.infoRow}><span style={styles.infoLabel}>Published</span><span style={styles.infoValue}>{formatDate(result.pub_date)}</span></div>
                                     <div style={styles.infoRow}><span style={styles.infoLabel}>Source</span><span style={styles.infoValue}>{result.indexer || "—"}</span></div>
-                                    {isLogged && result.magneturl && (
+                                    {isLogged && (result.magneturl || result.torrenturl) && (
                                         <button
                                             style={{ ...styles.magnetBtn, ...(dlSuccess ? styles.magnetBtnSuccess : {}), ...(hoverBtn === "imdb" && !dlSuccess ? styles.magnetBtnHover : {}), ...((dlLoading || dlSuccess) ? styles.magnetBtnDisabled : {}) }}
-                                            onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid)}
+                                            onClick={() => handleDownloadClick(result.title, result.magneturl, result.imdbid, result.torrenturl)}
                                             onMouseEnter={() => setHoverBtn("imdb")}
                                             onMouseLeave={() => setHoverBtn(null)}
                                             disabled={dlLoading || dlSuccess}
                                             title="Download torrent"
                                         >
-                                            {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : "🧲 Download"}
+                                            {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : result.magneturl ? "🧲 Download" : "⬇ Download (.torrent)"}
                                         </button>
                                     )}
                                 </div>

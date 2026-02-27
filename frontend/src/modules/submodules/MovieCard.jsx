@@ -18,12 +18,14 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
     const isCompleted = filmStatus === "completed";
     const isDownloading = filmStatus === "downloading";
 
+    const hasDownloadLink = result.magneturl || result.torrenturl;
+
     const handleDownload = async (e) => {
         e.stopPropagation();
-        if (!result.magneturl || downloading || added || alreadyOnServer) return;
+        if (!hasDownloadLink || downloading || added || alreadyOnServer) return;
         setDownloading(true);
         try {
-            await onDownload(result.title, result.magneturl, result.imdbid);
+            await onDownload(result.title, result.magneturl, result.imdbid, result.torrenturl);
             setAdded(true);
         } finally {
             setDownloading(false);
@@ -121,7 +123,7 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
                         ))}
                     </div>
                 )}
-                {!libraryMode && isLogged && result.magneturl && (
+                {!libraryMode && isLogged && hasDownloadLink && (
                     <button
                         style={{
                             ...styles.dlBtn,

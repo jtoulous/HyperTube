@@ -74,6 +74,7 @@ class JackettService:
                 "category": self._text(item, "category"),
                 "category_ids": self._all_attr_vals(item, "category"),
                 "magneturl": self._find_magnet(item),
+                "torrenturl": self._find_torrent_url(item),
                 "indexer": self._text(item, "jackettindexer") or self._text(item, "{http://jackett.github.io/}indexer"),
             }
 
@@ -162,6 +163,22 @@ class JackettService:
         magneturl = self._attr_val(item, "magneturl")
         if magneturl:
             return magneturl
+
+        return None
+
+    def _find_torrent_url(self, item) -> Optional[str]:
+        """Extract .torrent file download URL (non-magnet) from item."""
+        # Check link — only if it's NOT a magnet
+        link = self._text(item, "link")
+        if link and not link.startswith("magnet:"):
+            return link
+
+        # Check enclosure URL — only if it's NOT a magnet
+        enclosure = item.find("enclosure")
+        if enclosure is not None:
+            url = enclosure.get("url", "")
+            if url and not url.startswith("magnet:"):
+                return url
 
         return None
 

@@ -107,6 +107,85 @@ class TorrentService:
         logger.error(f"Failed to add magnet: {resp.text}")
         return False
 
+    async def add_torrent_url(
+        self,
+        torrent_url: str,
+        save_path: str = "/downloads",
+        category: str = "",
+        tags: str = "",
+    ) -> str | None:
+        """
+        Download a .torrent file from a URL and add it to qBittorrent.
+        Returns the torrent hash on success, or None on failure.
+        """
+        import hashlib
+        import bencodepy
+
+        # Step 1: follow redirects manually to detect magnet:// redirects
+        try:
+            resp = await self._client.get(torrent_url, follow_redirects=False, timeout=30)
+
+            # Follow redirects manually, checking for magnet links
+            max_redirects = 10
+            while resp.is_redirect and max_redirects > 0:
+                location = resp.headers.get("location", "")
+                if location.startswith("magnet:"):
+                    # Jackett redirected to a magnet link — use the magnet path
+                    logger.info(f"Torrent URL redirected to magnet, using add_magnet")
+                    success = await self.add_magnet(location, save_path, category, tags)
+                    if success and "xt=urn:btih:" in location:
+                        return location.split("xt=urn:btih:")[1].split("&")[0].lower()
+                    return None
+                resp = await self._client.get(location, follow_redirects=False, timeout=30)
+                max_redirects -= 1
+
+            resp.raise_for_status()
+            torrent_bytes = resp.content
+        except Exception as e:
+            logger.error(f"Failed to download .torrent from {torrent_url[:120]}: {e}")
+            return None
+
+        # Extract info_hash from torrent file
+        try:
+            decoded = bencodepy.decode(torrent_bytes)
+            info = decoded[b"info"]
+            info_hash = hashlib.sha1(bencodepy.encode(info)).hexdigest().lower()
+        except Exception as e:
+            logger.error(f"Failed to parse .torrent file: {e}")
+            return None
+
+        # Upload via qBittorrent multipart API
+        files = {"torrents": ("torrent.torrent", torrent_bytes, "application/x-bittorrent")}
+        data = {
+            "savepath": save_path,
+            "sequentialDownload": "true",
+            "firstLastPiecePrio": "true",
+        }
+        if category:
+            data["category"] = category
+        if tags:
+            data["tags"] = tags
+
+        try:
+            upload_resp = await self._client.post(
+                f"{self._base}/api/v2/torrents/add",
+                data=data,
+                files=files,
+            )
+            if upload_resp.status_code == 200 and upload_resp.text.strip() != "Fails.":
+                logger.info(f"Torrent file added from URL, hash={info_hash}")
+                return info_hash
+
+            # Might already exist
+            existing = await self._get("/api/v2/torrents/info", params={"hashes": info_hash})
+            if existing:
+                logger.info(f"Torrent already in qBittorrent: {info_hash}")
+                return info_hash
+        except Exception as e:
+            logger.error(f"Failed to upload .torrent to qBittorrent: {e}")
+
+        return None
+
     async def list_torrents(
         self,
         filter: str = "all",

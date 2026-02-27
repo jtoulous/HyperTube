@@ -227,10 +227,10 @@ export default function MainContentModule() {
         setExpandedIndex(expandedIndex === idx ? null : idx);
     };
 
-    const handleDownload = useCallback(async (title, magnetLink, imdbId) => {
-        if (!title || !magnetLink) return;
+    const handleDownload = useCallback(async (title, magnetLink, imdbId, torrentUrl) => {
+        if (!title || (!magnetLink && !torrentUrl)) return;
         try {
-            await downloadsApi.createDownload(title, magnetLink, imdbId);
+            await downloadsApi.createDownload(title, magnetLink, imdbId, torrentUrl);
             // Refresh film list so filmStatusMap picks up the new download
             loadFilms();
         } catch (err) {
