@@ -153,12 +153,13 @@ class DownloadService:
                 state = progress.get("state", "")
 
                 # Map qBittorrent states
-                COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP"}
+                COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP",
+                                    "pausedUP", "stoppedUP"}  # seeding paused = download done
                 DOWNLOADING_STATES = {
                     "downloading", "forcedDL", "metaDL", "allocating",
                     "stalledDL", "queuedDL", "checkingDL", "checkingResumeData", "moving"
                 }
-                PAUSED_STATES = {"pausedDL", "pausedUP"}
+                PAUSED_STATES = {"pausedDL", "stoppedDL"}  # download paused
                 ERROR_STATES = {"error", "missingFiles", "unknown"}
 
                 if state in COMPLETED_STATES:

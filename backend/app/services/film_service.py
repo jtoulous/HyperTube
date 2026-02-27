@@ -104,20 +104,27 @@ class FilmService:
 
     @staticmethod
     async def refresh_downloading_films(session: AsyncSession):
-        """Poll qBittorrent for every film still downloading and update the DB."""
+        """Poll qBittorrent for non-completed films and update the DB.
+
+        Only checks films that are still in progress (downloading, paused,
+        error) so that completed films stay completed even if the torrent
+        has been removed from qBittorrent.
+        """
         from app.services.torrent_service import TorrentService
-        from app.models.download import DownloadStatus
 
         result = await session.execute(
-            select(Film).where(Film.status == "downloading")
+            select(Film).where(
+                Film.torrent_hash.isnot(None),
+                Film.status.in_(["downloading", "paused", "error"]),
+            )
         )
-        downloading = result.scalars().all()
-        if not downloading:
+        all_films = result.scalars().all()
+        if not all_films:
             return
 
         # Gather all hashes in one call
         hash_to_film = {}
-        for f in downloading:
+        for f in all_films:
             if f.torrent_hash:
                 hash_to_film[f.torrent_hash.lower()] = f
         if not hash_to_film:
@@ -128,12 +135,16 @@ class FilmService:
                 hashes_str = "|".join(hash_to_film.keys())
                 torrents = await ts.list_torrents(hashes=hashes_str)
 
-            COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP"}
-            PAUSED_STATES = {"pausedDL", "pausedUP"}
+            COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP",
+                                "pausedUP", "stoppedUP"}  # seeding paused = download done
+            PAUSED_STATES = {"pausedDL", "stoppedDL"}  # download paused
             ERROR_STATES = {"error", "missingFiles", "unknown"}
 
+            returned_hashes = set()
             for t in torrents:
-                film = hash_to_film.get(t["hash"].lower())
+                h = t["hash"].lower()
+                returned_hashes.add(h)
+                film = hash_to_film.get(h)
                 if not film:
                     continue
 
@@ -160,6 +171,15 @@ class FilmService:
                 # of what qBittorrent reports as its state
                 if film.progress >= 99.9:
                     film.status = "completed"
+
+            # Films whose torrent_hash is no longer known by qBittorrent
+            # (deleted externally or via our own delete route).
+            for h, film in hash_to_film.items():
+                if h not in returned_hashes:
+                    logger.info(f"Torrent {h} for film {film.imdb_id} gone from qBittorrent, marking error")
+                    film.status = "error"
+                    film.download_speed = 0
+                    film.eta = None
 
             await session.flush()
         except Exception as e:
@@ -307,5 +327,13 @@ class FilmService:
                 WatchedFilm.user_id == user_id,
                 WatchedFilm.imdb_id == imdb_id,
             )
+        )
+        return result.rowcount > 0
+
+    @staticmethod
+    async def delete_film(session: AsyncSession, imdb_id: str) -> bool:
+        """Delete a film from the catalogue. Returns True if a row was deleted."""
+        result = await session.execute(
+            delete(Film).where(Film.imdb_id == imdb_id)
         )
         return result.rowcount > 0

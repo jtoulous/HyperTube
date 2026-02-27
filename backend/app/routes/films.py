@@ -1,8 +1,10 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
+from app.models.download import Download
 from app.security import get_current_user
 from app.services.film_service import FilmService
 from app.services.torrent_service import TorrentService
@@ -42,32 +44,52 @@ async def get_film_files(
     session: AsyncSession = Depends(get_db),
 ):
     """
-    Return playable video files for a film, looked up by its torrent_hash.
+    Return playable video files for a film across ALL its associated torrents.
     Works for completed downloads and partially-downloaded sequential torrents.
     """
     film = await FilmService.get_film_by_imdb(session, imdb_id)
     if not film:
         raise HTTPException(status_code=404, detail="Film not found")
-    if not film.torrent_hash:
-        raise HTTPException(status_code=404, detail="No torrent associated with this film")
 
+    # Gather every torrent hash linked to this film (same logic as /torrents)
+    hashes: set[str] = set()
+    if film.torrent_hash:
+        hashes.add(film.torrent_hash.lower())
+    if imdb_id.startswith("noid-"):
+        hashes.add(imdb_id[5:].lower())
+    else:
+        result = await session.execute(
+            select(Download.torrent_hash).where(Download.imdb_id == imdb_id).distinct()
+        )
+        for row in result.all():
+            if row[0]:
+                hashes.add(row[0].lower())
+
+    if not hashes:
+        return {"files": []}
+
+    video_files = []
+    seen_names: set[str] = set()
     try:
         async with TorrentService() as ts:
-            files = await ts.get_files(film.torrent_hash)
+            for h in sorted(hashes):
+                files = await ts.get_files(h)
+                for f in files:
+                    name = f.get("name", "")
+                    if name in seen_names:
+                        continue
+                    ext = os.path.splitext(name)[1].lower()
+                    if ext in VIDEO_EXTS:
+                        seen_names.add(name)
+                        video_files.append({
+                            "name": name,
+                            "size": f.get("size", 0),
+                            "stream_url": f"/api/v1/stream/{name}",
+                            "torrent_hash": h,
+                        })
     except Exception as e:
         logger.error(f"Failed to list torrent files for {imdb_id}: {e}")
         raise HTTPException(status_code=500, detail="Could not fetch file list")
-
-    video_files = []
-    for f in files:
-        name = f.get("name", "")
-        ext = os.path.splitext(name)[1].lower()
-        if ext in VIDEO_EXTS:
-            video_files.append({
-                "name": name,
-                "size": f.get("size", 0),
-                "stream_url": f"/api/v1/stream/{name}",
-            })
 
     video_files.sort(key=lambda x: x["size"], reverse=True)
     return {"files": video_files}
@@ -118,3 +140,101 @@ async def unmark_film_watched(
         raise HTTPException(status_code=404, detail="Film not in watched list")
     await session.commit()
     return {"ok": True}
+
+
+# ─── Torrent listing for a film ─────────────────────────────────
+
+COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP",
+                    "pausedUP", "stoppedUP"}  # seeding paused = download done
+PAUSED_STATES = {"pausedDL", "stoppedDL"}  # download paused
+ERROR_STATES = {"error", "missingFiles", "unknown"}
+
+
+@router.get("/{imdb_id}/torrents")
+async def get_film_torrents(
+    imdb_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return all torrents associated with a film, each with live status
+    from qBittorrent plus control actions.
+    """
+    film = await FilmService.get_film_by_imdb(session, imdb_id)
+    if not film:
+        raise HTTPException(status_code=404, detail="Film not found")
+
+    # Collect all unique torrent hashes for this film
+    hashes: set[str] = set()
+    if film.torrent_hash:
+        hashes.add(film.torrent_hash.lower())
+
+    if imdb_id.startswith("noid-"):
+        # Hash is embedded in the synthetic imdb_id
+        hashes.add(imdb_id[5:].lower())
+    else:
+        # Check downloads table for any torrents with this imdb_id
+        result = await session.execute(
+            select(Download.torrent_hash).where(Download.imdb_id == imdb_id).distinct()
+        )
+        for row in result.all():
+            if row[0]:
+                hashes.add(row[0].lower())
+
+    # Also grab title from downloads, keyed by hash
+    title_map: dict[str, str] = {}
+    if hashes:
+        result = await session.execute(
+            select(Download.torrent_hash, Download.title).where(
+                Download.torrent_hash.in_([h for h in hashes])
+            )
+        )
+        for row in result.all():
+            if row[0]:
+                title_map[row[0].lower()] = row[1]
+
+    # Fetch live status from qBittorrent
+    torrents = []
+    if hashes:
+        try:
+            async with TorrentService() as ts:
+                hashes_str = "|".join(hashes)
+                qbt_list = await ts.list_torrents(hashes=hashes_str)
+            qbt_map = {t["hash"].lower(): t for t in qbt_list}
+
+            for h in sorted(hashes):
+                t = qbt_map.get(h)
+                if not t:
+                    # Torrent no longer in qBittorrent — skip silently
+                    continue
+
+                state = t.get("state", "")
+                if state in COMPLETED_STATES:
+                    mapped = "completed"
+                elif state in PAUSED_STATES:
+                    mapped = "paused"
+                elif state in ERROR_STATES:
+                    mapped = "error"
+                else:
+                    mapped = "downloading"
+
+                total = t.get("size", 0)
+                downloaded = t.get("downloaded", 0)
+                progress = (downloaded / total * 100) if total > 0 else (t.get("progress", 0) * 100)
+
+                torrents.append({
+                    "hash": h,
+                    "name": t.get("name", title_map.get(h, "Unknown")),
+                    "status": mapped,
+                    "progress": round(progress, 1),
+                    "download_speed": t.get("dlspeed", 0),
+                    "eta": t.get("eta"),
+                    "total_bytes": total,
+                    "downloaded_bytes": downloaded,
+                })
+        except Exception as e:
+            logger.error(f"Failed to fetch torrent info for film {imdb_id}: {e}")
+            # On error, return empty rather than fake error entries
+            pass
+
+    return {"torrents": torrents}
