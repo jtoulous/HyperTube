@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { searchApi } from "../../api/search";
 import MovieCard from "./MovieCard";
 
-export default function BrowseView({ genre, period, sortBy, watchedImdbIds, onDownload, isLogged, onCardClick }) {
+export default function BrowseView({ genre, period, sortBy, watchedImdbIds, filmStatusMap, onDownload, isLogged, onCardClick }) {
     const [page,   setPage]   = useState(1);
     const [results,  setResults]  = useState([]);
     const [loading,  setLoading]  = useState(false);
@@ -86,6 +86,7 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, onDo
                         key={result.tmdb_id || result.imdbid || idx}
                         result={result}
                         isWatched={!!(result.imdbid && watchedImdbIds.has(result.imdbid))}
+                        filmStatus={result.imdbid && filmStatusMap ? filmStatusMap.get(result.imdbid) : undefined}
                         onDownload={onDownload}
                         isLogged={isLogged}
                         onCardClick={onCardClick}

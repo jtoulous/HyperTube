@@ -9,13 +9,18 @@ function formatEta(seconds) {
     return m > 0 ? `${h}h${m}m` : `${h}h`;
 }
 
-export default function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick, libraryMode }) {
+export default function MovieCard({ result, isWatched, onDownload, isLogged, onCardClick, libraryMode, filmStatus }) {
     const [downloading, setDownloading] = useState(false);
     const [added, setAdded] = useState(false);
 
+    // Film is already on the server (downloaded or in progress)
+    const alreadyOnServer = !!filmStatus;
+    const isCompleted = filmStatus === "completed";
+    const isDownloading = filmStatus === "downloading";
+
     const handleDownload = async (e) => {
         e.stopPropagation();
-        if (!result.magneturl || downloading || added) return;
+        if (!result.magneturl || downloading || added || alreadyOnServer) return;
         setDownloading(true);
         try {
             await onDownload(result.title, result.magneturl, result.imdbid);
@@ -50,10 +55,10 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
                 {isWatched && <div style={styles.watchedBadge}>✓ Watched</div>}
 
                 {libraryMode && status === "completed" && canWatch && !isWatched && (
-                    <div style={styles.readyBadge}>▶ Available</div>
+                    <div style={styles.readyBadge}>Fully Available</div>
                 )}
                 {libraryMode && status === "downloading" && canWatch && (
-                    <div style={styles.canWatchBadge}>▶ Watch now</div>
+                    <div style={styles.canWatchBadge}>Partially Available</div>
                 )}
                 {libraryMode && status === "downloading" && !canWatch && (
                     <div style={styles.downloadingBadge}>
@@ -102,15 +107,19 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
                     <button
                         style={{
                             ...styles.dlBtn,
-                            ...(added ? styles.dlBtnDone : {}),
-                            ...((downloading || added) ? styles.dlBtnDisabled : {}),
+                            ...(added || isCompleted ? styles.dlBtnDone : {}),
+                            ...(isDownloading ? styles.dlBtnInProgress : {}),
+                            ...((downloading || added || alreadyOnServer) ? styles.dlBtnDisabled : {}),
                         }}
                         onClick={handleDownload}
-                        disabled={downloading || added}
+                        disabled={downloading || added || alreadyOnServer}
                     >
                         {downloading
                             ? <span style={styles.dlSpinner} />
-                            : added ? "✓ Added" : "⬇ Download"
+                            : isCompleted ? "✓ Available"
+                            : isDownloading ? "⬇ In progress"
+                            : added ? "✓ Added"
+                            : "⬇ Download"
                         }
                     </button>
                 )}
@@ -122,7 +131,9 @@ export default function MovieCard({ result, isWatched, onDownload, isLogged, onC
 const styles = {
     card: {
         background: "#0d1117",
-        border: "1px solid #21262d",
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor: "#21262d",
         borderRadius: 8,
         overflow: "hidden",
         transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
@@ -176,7 +187,7 @@ const styles = {
         position: "absolute",
         top: 6,
         left: 6,
-        background: "rgba(0, 123, 255, 0.88)",
+        background: "rgba(35, 134, 54, 0.88)",
         color: "#fff",
         fontSize: "0.62rem",
         fontWeight: 700,
@@ -189,7 +200,7 @@ const styles = {
         position: "absolute",
         top: 6,
         left: 6,
-        background: "rgba(35, 134, 54, 0.88)",
+        background: "rgba(0, 123, 255, 0.88)",
         color: "#fff",
         fontSize: "0.62rem",
         fontWeight: 700,
@@ -334,6 +345,11 @@ const styles = {
         background: "rgba(63, 185, 80, 0.1)",
         borderColor: "rgba(63, 185, 80, 0.25)",
         color: "#3fb950",
+    },
+    dlBtnInProgress: {
+        background: "rgba(210, 153, 34, 0.1)",
+        borderColor: "rgba(210, 153, 34, 0.25)",
+        color: "#d29922",
     },
     dlBtnDisabled: {
         cursor: "not-allowed",

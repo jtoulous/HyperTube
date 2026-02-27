@@ -66,6 +66,7 @@ export default function MainContentModule() {
     const [playerFile, setPlayerFile] = useState(null);
     const [playerTitle, setPlayerTitle] = useState("");
     const [playerAllFiles, setPlayerAllFiles] = useState([]);
+    const [playerImdbId, setPlayerImdbId] = useState(null);
 
     /*  Load watched IDs from API  */
     const loadWatchedIds = useCallback(async () => {
@@ -112,10 +113,13 @@ export default function MainContentModule() {
         if (isLogged) loadWatchedIds();
     }, [isLogged, loadWatchedIds]);
 
+    /* Load films once on mount so filmStatusMap is available on all tabs */
+    useEffect(() => { loadFilms(); }, [loadFilms]);
+
+    /* While on the library tab, refresh every 5 s so progress stays live */
     useEffect(() => {
         if (currentTab !== "library") return;
         loadFilms();
-        /* Refresh every 5 s while on the library tab so progress stays live */
         const iv = setInterval(loadFilms, 5000);
         return () => clearInterval(iv);
     }, [currentTab, loadFilms]);
@@ -137,6 +141,14 @@ export default function MainContentModule() {
         else if (browseSortBy === "name") movies.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
         return movies;
     }, [libraryMovies, searchQuery, browseGenre, browseSortBy, browsePeriod]);
+
+    const filmStatusMap = useMemo(() => {
+        const m = new Map();
+        for (const f of libraryMovies) {
+            if (f.imdbid) m.set(f.imdbid, f.status);
+        }
+        return m;
+    }, [libraryMovies]);
 
     const handleTabClick = (tab) => {
         setCurrentTab(tab);
@@ -216,10 +228,12 @@ export default function MainContentModule() {
         if (!title || !magnetLink) return;
         try {
             await downloadsApi.createDownload(title, magnetLink, imdbId);
+            // Refresh film list so filmStatusMap picks up the new download
+            loadFilms();
         } catch (err) {
             console.error("Download error:", err?.response?.data?.detail || err?.message);
         }
-    }, []);
+    }, [loadFilms]);
 
     const handleMarkWatched = useCallback(async (imdbId) => {
         if (!isLogged || !imdbId) return;
@@ -231,7 +245,7 @@ export default function MainContentModule() {
         }
     }, [isLogged]);
 
-    /** Open the player for a film from the library (uses the global /films/:imdb_id/files endpoint) */
+    /** Open the file picker for a film from the library */
     const handleWatchFilm = useCallback(async (movie) => {
         if (!movie?.imdbid) return;
         try {
@@ -242,15 +256,14 @@ export default function MainContentModule() {
                 return;
             }
             setPlayerAllFiles(files);
-            setPlayerFile(files[0]);
+            setPlayerFile(null);           // don't auto-play; show picker first
             setPlayerTitle(movie.title || "");
-            // Mark watched
-            handleMarkWatched(movie.imdbid);
+            setPlayerImdbId(movie.imdbid); // remember for marking watched later
         } catch (err) {
             console.error("Failed to load film files:", err);
             alert("Could not load video files.");
         }
-    }, [handleMarkWatched]);
+    }, []);
 
     /*  Computed sidebar style  */
     const sidebarStyle = isMobile
@@ -268,15 +281,17 @@ export default function MainContentModule() {
                     >
                         🔍 Browse
                     </button>
-                    <button
-                        style={{
-                            ...s.navBtn,
-                            ...(currentTab === "library" ? s.navBtnActive : {}),
-                        }}
-                        onClick={() => handleTabClick("library")}
-                    >
-                        📚 Library
-                    </button>
+                    {isLogged && (
+                        <button
+                            style={{
+                                ...s.navBtn,
+                                ...(currentTab === "library" ? s.navBtnActive : {}),
+                            }}
+                            onClick={() => handleTabClick("library")}
+                        >
+                            📚 Library
+                        </button>
+                    )}
                 </nav>
 
                 <div style={s.divider} />
@@ -429,6 +444,7 @@ export default function MainContentModule() {
                                             key={result.tmdb_id || idx}
                                             result={result}
                                             isWatched={!!(result.imdbid && watchedImdbIds.has(result.imdbid))}
+                                            filmStatus={result.imdbid ? filmStatusMap.get(result.imdbid) : undefined}
                                             onDownload={handleDownload}
                                             isLogged={isLogged}
                                             onCardClick={handleMovieCardClick}
@@ -444,6 +460,7 @@ export default function MainContentModule() {
                                     period={browsePeriod}
                                     sortBy={browseSortBy}
                                     watchedImdbIds={watchedImdbIds}
+                                    filmStatusMap={filmStatusMap}
                                     onDownload={handleDownload}
                                     isLogged={isLogged}
                                     onCardClick={handleMovieCardClick}
@@ -491,14 +508,17 @@ export default function MainContentModule() {
                 )}
             </div>
 
-            {/* Player modal (opened from library) */}
-            {playerFile && (
+            {/* Player / file-picker modal (opened from library) */}
+            {playerAllFiles.length > 0 && (
                 <WatchModal
                     file={playerFile}
                     title={playerTitle}
                     allFiles={playerAllFiles}
-                    onFileChange={setPlayerFile}
-                    onClose={() => setPlayerFile(null)}
+                    onFileChange={(f) => {
+                        setPlayerFile(f);
+                        if (f && playerImdbId) handleMarkWatched(playerImdbId);
+                    }}
+                    onClose={() => { setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); }}
                 />
             )}
         </div>
