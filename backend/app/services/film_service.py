@@ -106,6 +106,69 @@ class FilmService:
         return result.scalars().all()
 
     @staticmethod
+    async def refresh_downloading_films(session: AsyncSession):
+        """Poll qBittorrent for every film still downloading and update the DB."""
+        from app.services.torrent_service import TorrentService
+        from app.models.download import DownloadStatus
+
+        result = await session.execute(
+            select(Film).where(Film.status == "downloading")
+        )
+        downloading = result.scalars().all()
+        if not downloading:
+            return
+
+        # Gather all hashes in one call
+        hash_to_film = {}
+        for f in downloading:
+            if f.torrent_hash:
+                hash_to_film[f.torrent_hash.lower()] = f
+        if not hash_to_film:
+            return
+
+        try:
+            async with TorrentService() as ts:
+                hashes_str = "|".join(hash_to_film.keys())
+                torrents = await ts.list_torrents(hashes=hashes_str)
+
+            COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP"}
+            PAUSED_STATES = {"pausedDL", "pausedUP"}
+            ERROR_STATES = {"error", "missingFiles", "unknown"}
+
+            for t in torrents:
+                film = hash_to_film.get(t["hash"].lower())
+                if not film:
+                    continue
+
+                state = t.get("state", "")
+                if state in COMPLETED_STATES:
+                    film.status = "completed"
+                elif state in PAUSED_STATES:
+                    film.status = "paused"
+                elif state in ERROR_STATES:
+                    film.status = "error"
+                else:
+                    film.status = "downloading"
+
+                film.downloaded_bytes = t.get("downloaded", 0)
+                film.total_bytes = t.get("size", 0)
+                if film.total_bytes > 0:
+                    film.progress = (film.downloaded_bytes / film.total_bytes) * 100.0
+                else:
+                    film.progress = t.get("progress", 0.0) * 100.0
+                film.download_speed = t.get("dlspeed", 0)
+                film.eta = t.get("eta")
+
+                # Safety net: if progress >= 100% the film is done regardless
+                # of what qBittorrent reports as its state
+                if film.progress >= 99.9:
+                    film.status = "completed"
+
+            await session.flush()
+        except Exception as e:
+            logger.warning(f"Failed to refresh downloading films from qBittorrent: {e}")
+
+    @staticmethod
     async def get_film_by_imdb(session: AsyncSession, imdb_id: str) -> Film | None:
         result = await session.execute(
             select(Film).where(Film.imdb_id == imdb_id)
@@ -137,6 +200,11 @@ class FilmService:
 
         # downloading
         progress_frac = (film.progress or 0) / 100.0
+
+        # If the file is essentially complete, allow watching immediately
+        if progress_frac >= 0.99:
+            return True, 0
+
         dlspeed = film.download_speed or 0
         total = film.total_bytes or 0
         dur = film.duration  # seconds

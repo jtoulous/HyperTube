@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stream", tags=["Streaming"])
 
-MEDIA_DIRS = ["/downloads", "/default-videos"]
+MEDIA_DIRS = ["/downloads", "/downloads/temp", "/default-videos"]
 
 RESOLUTION_MAP = {
     "360": 360,
