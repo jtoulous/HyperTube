@@ -63,17 +63,8 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
     useState(() => { });
 
     return (
-        <div
-            style={{ ...styles.row, ...(isExpanded ? styles.rowExpanded : {}) }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,123,255,0.08)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#21262d"; e.currentTarget.style.boxShadow = "none"; }}
-        >
-            <div
-                style={styles.header}
-                onClick={handleToggle}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.paddingLeft = "20px"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.paddingLeft = "16px"; }}
-            >
+        <div style={{ ...styles.row, ...(isExpanded ? styles.rowExpanded : {}) }}>
+            <div style={styles.header} onClick={handleToggle}>
                 <div style={styles.titleArea}>
                     <span style={styles.title}>{result.title}</span>
                     {result.match_quality === "exact" && (
@@ -227,10 +218,9 @@ const styles = {
     row: {
         background: "#0d1117",
         border: "1px solid #21262d",
-        borderRadius: 10,
+        borderRadius: 8,
         marginBottom: 4,
         overflow: "hidden",
-        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     header: {
         display: "flex",
@@ -239,7 +229,6 @@ const styles = {
         padding: "12px 16px",
         cursor: "pointer",
         gap: 14,
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     titleArea: {
         display: "flex",
@@ -398,14 +387,12 @@ const styles = {
         cursor: "pointer",
         width: "fit-content",
         outline: "none",
-        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
+        transition: "background 0.15s, border-color 0.15s, color 0.15s",
     },
     magnetBtnHover: {
-        background: "linear-gradient(135deg, #007BFF 0%, #0969da 100%)",
+        background: "#007BFF",
         borderColor: "#007BFF",
         color: "#fff",
-        transform: "translateY(-1px)",
-        boxShadow: "0 4px 16px rgba(0, 123, 255, 0.3)",
     },
     magnetBtnSuccess: {
         background: "rgba(63, 185, 80, 0.12)",
@@ -448,11 +435,9 @@ const styles = {
         height: "auto",
         maxHeight: 200,
         objectFit: "cover",
-        borderRadius: 8,
+        borderRadius: 6,
         boxShadow: "0 2px 12px rgba(0, 0, 0, 0.4)",
         flexShrink: 0,
-        transition: "transform 0.4s cubic-bezier(0.25, 1, 0.3, 1), box-shadow 0.4s ease",
-        cursor: "default",
     },
     mediaInfo: {
         display: "flex",

@@ -104,11 +104,7 @@ export default function DownloadItem({ download, onMarkWatched }) {
                     onClose={() => setPlayerFile(null)}
                 />
             )}
-            <div
-                style={{ ...styles.item, ...(BORDER_COLORS[status] || {}) }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.2)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#21262d"; e.currentTarget.style.boxShadow = "none"; }}
-            >
+            <div style={{ ...styles.item, ...(BORDER_COLORS[status] || {}) }}>
                 <div style={styles.header}>
                     <span style={styles.title}>{displayProgress.title}</span>
                     <div style={styles.headerRight}>
@@ -118,8 +114,6 @@ export default function DownloadItem({ download, onMarkWatched }) {
                                 onClick={handleWatch}
                                 disabled={watchLoading}
                                 title="Watch this video"
-                                onMouseEnter={e => { if (!watchLoading) { e.currentTarget.style.background = "linear-gradient(135deg, #2ea043 0%, #3fb950 100%)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(35,134,54,0.35)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
-                                onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #238636 0%, #2ea043 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(35,134,54,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
                             >
                                 {watchLoading ? (
                                     <span style={styles.watchSpinner} />
@@ -147,10 +141,10 @@ const styles = {
     item: {
         background: "#0d1117",
         border: "1px solid #21262d",
-        borderRadius: 10,
+        borderRadius: 8,
         padding: "14px 16px",
         borderLeft: "3px solid #007BFF",
-        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
+        transition: "border-color 0.2s",
     },
     header: {
         display: "flex",
@@ -182,15 +176,13 @@ const styles = {
         padding: "4px 14px",
         border: "none",
         borderRadius: 6,
-        background: "linear-gradient(135deg, #238636 0%, #2ea043 100%)",
+        background: "#238636",
         color: "#fff",
         fontSize: "0.8rem",
         fontWeight: 600,
         fontFamily: "'Inter', sans-serif",
         letterSpacing: "0.02em",
         cursor: "pointer",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
-        boxShadow: "0 2px 8px rgba(35, 134, 54, 0.2)",
     },
     watchBtnDisabled: {
         opacity: 0.5,
@@ -226,9 +218,9 @@ const styles = {
     },
     progressFill: {
         height: "100%",
-        background: "linear-gradient(90deg, #007BFF, #58a6ff)",
+        background: "#007BFF",
         borderRadius: 3,
-        transition: "width 1s cubic-bezier(0.25, 1, 0.3, 1)",
+        transition: "width 1s ease",
     },
     meta: {
         display: "flex",

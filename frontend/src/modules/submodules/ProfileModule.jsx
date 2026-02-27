@@ -165,13 +165,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
                 {/* Header */}
                 <div style={styles.header}>
                     <span style={styles.heading}>{isSelf ? "My Profile" : "Profile"}</span>
-                    <button
-                        style={styles.closeButton}
-                        onClick={onClose}
-                        aria-label="Close"
-                        onMouseEnter={e => { e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 0 10px rgba(255,255,255,0.06)"; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = "#8b949e"; e.currentTarget.style.background = "none"; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
-                    >&times;</button>
+                    <button style={styles.closeButton} onClick={onClose} aria-label="Close">&times;</button>
                 </div>
 
                 <div style={styles.body}>
@@ -185,12 +179,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={handleSearchKeyDown}
                         />
-                        <button
-                            style={styles.searchButton}
-                            onClick={handleSearch}
-                            onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; e.currentTarget.style.borderColor = "#484f58"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)"; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
-                        >Search</button>
+                        <button style={styles.searchButton} onClick={handleSearch}>Search</button>
                     </div>
 
                     <div style={{ marginTop: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #30363d" }} />
@@ -257,12 +246,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
                                         <input style={{ ...styles.input, opacity: 0.6 }} type="text" value={providerLabel(authProvider)} readOnly />
                                     </label>
 
-                                    <button
-                                        style={styles.saveButton}
-                                        onClick={handleSave}
-                                        onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, #2ea043 0%, #3fb950 100%)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(35,134,54,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #238636 0%, #2ea043 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(35,134,54,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
-                                    >Save changes</button>
+                                    <button style={styles.saveButton} onClick={handleSave}>Save changes</button>
 
                                     {/* Password section (email auth only) */}
                                     {authProvider === "EMAIL" && (
@@ -272,8 +256,6 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
                                                 <button
                                                     style={styles.secondaryButton}
                                                     onClick={() => setShowPasswordForm(true)}
-                                                    onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; e.currentTarget.style.borderColor = "#484f58"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)"; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
                                                 >
                                                     Change password
                                                 </button>
@@ -292,18 +274,8 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
                                                         <input style={styles.input} type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
                                                     </label>
                                                     <div style={{ display: "flex", gap: "0.5rem" }}>
-                                                        <button
-                                                            style={styles.saveButton}
-                                                            onClick={handlePasswordChange}
-                                                            onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, #2ea043 0%, #3fb950 100%)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(35,134,54,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                                                            onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #238636 0%, #2ea043 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(35,134,54,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
-                                                        >Update password</button>
-                                                        <button
-                                                            style={styles.secondaryButton}
-                                                            onClick={() => setShowPasswordForm(false)}
-                                                            onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; e.currentTarget.style.borderColor = "#484f58"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)"; }}
-                                                            onMouseLeave={e => { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
-                                                        >Cancel</button>
+                                                        <button style={styles.saveButton} onClick={handlePasswordChange}>Update password</button>
+                                                        <button style={styles.secondaryButton} onClick={() => setShowPasswordForm(false)}>Cancel</button>
                                                     </div>
                                                 </div>
                                             )}
@@ -351,8 +323,7 @@ const styles = {
         inset: 0,
         backgroundColor: "rgba(0, 0, 0, 0.55)",
         zIndex: 200,
-        transition: "opacity 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
-        backdropFilter: "blur(4px)",
+        transition: "opacity 0.25s ease",
     },
     drawer: {
         position: "fixed",
@@ -362,11 +333,11 @@ const styles = {
         width: "min(420px, 92vw)",
         backgroundColor: "#161b22",
         color: "#e6edf3",
-        boxShadow: "-8px 0 40px rgba(0, 0, 0, 0.5)",
+        boxShadow: "-4px 0 24px rgba(0, 0, 0, 0.4)",
         zIndex: 201,
         display: "flex",
         flexDirection: "column",
-        transition: "transform 0.4s cubic-bezier(0.25, 1, 0.3, 1)",
+        transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         fontFamily: "'Inter', sans-serif",
     },
     header: {
@@ -385,8 +356,6 @@ const styles = {
         cursor: "pointer",
         lineHeight: 1,
         padding: "0.1rem 0.3rem",
-        borderRadius: 6,
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     body: {
         flex: 1,
@@ -409,7 +378,6 @@ const styles = {
         fontFamily: "'Inter', sans-serif",
         outline: "none",
         boxSizing: "border-box",
-        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     searchButton: {
         padding: "0.6rem 1rem",
@@ -422,7 +390,6 @@ const styles = {
         fontFamily: "'Inter', sans-serif",
         fontWeight: 500,
         whiteSpace: "nowrap",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     muted: { fontSize: "0.9rem", color: "#8b949e" },
     error: {
@@ -485,12 +452,11 @@ const styles = {
         fontFamily: "'Inter', sans-serif",
         outline: "none",
         boxSizing: "border-box",
-        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     saveButton: {
         padding: "0.6rem",
         borderRadius: "6px",
-        background: "linear-gradient(135deg, #238636 0%, #2ea043 100%)",
+        background: "#238636",
         color: "#fff",
         border: "none",
         cursor: "pointer",
@@ -498,8 +464,6 @@ const styles = {
         fontWeight: 600,
         fontFamily: "'Inter', sans-serif",
         marginTop: "0.25rem",
-        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
-        boxShadow: "0 2px 8px rgba(35, 134, 54, 0.2)",
     },
     secondaryButton: {
         padding: "0.55rem",
@@ -511,7 +475,6 @@ const styles = {
         fontSize: "0.85rem",
         fontFamily: "'Inter', sans-serif",
         fontWeight: 500,
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     divider: {
         height: "1px",

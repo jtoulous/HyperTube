@@ -27,47 +27,10 @@ body {
 a {
     color: #58a6ff;
     text-decoration: none;
-    transition: color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 a:hover {
     text-decoration: underline;
-    color: #79c0ff;
-}
-
-/* Global focus ring — premium glow */
-input:focus, select:focus, textarea:focus {
-    border-color: #388bfd !important;
-    box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.2), 0 0 12px rgba(56, 139, 253, 0.08) !important;
-    transition: border-color 0.35s cubic-bezier(0.25,1,0.3,1), box-shadow 0.35s cubic-bezier(0.25,1,0.3,1) !important;
-}
-
-/* Smooth scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-}
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-::-webkit-scrollbar-thumb {
-    background: #30363d;
-    border-radius: 4px;
-    transition: background 0.3s ease;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #484f58;
-}
-
-/* Button press effect — global */
-button:active:not(:disabled) {
-    transform: scale(0.97) !important;
-    transition: transform 0.08s ease !important;
-}
-
-/* Global selection styling */
-::selection {
-    background: rgba(56, 139, 253, 0.3);
-    color: #e6edf3;
 }
 
 @media (max-width: 768px) {
@@ -80,29 +43,4 @@ button:active:not(:disabled) {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeSlideIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-}
-
-@keyframes pulseGlow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
-    50%      { box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.15); }
-}
-
-@keyframes subtleBounce {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-2px); }
 }

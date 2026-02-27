@@ -257,8 +257,6 @@ export default function MainContentModule() {
                     <button
                         style={{ ...s.navBtn, ...(currentTab === "browse" ? s.navBtnActive : {}) }}
                         onClick={() => handleTabClick("browse")}
-                        onMouseEnter={e => { if (currentTab !== "browse") { e.currentTarget.style.background = "rgba(139,148,158,0.08)"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.borderColor = "rgba(139,148,158,0.12)"; e.currentTarget.style.transform = "translateX(4px)"; } }}
-                        onMouseLeave={e => { if (currentTab !== "browse") { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#8b949e"; e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateX(0)"; } }}
                     >
                         🔍 Browse
                     </button>
@@ -269,8 +267,6 @@ export default function MainContentModule() {
                                 ...(currentTab === "library" ? s.navBtnActive : {}),
                             }}
                             onClick={() => handleTabClick("library")}
-                            onMouseEnter={e => { if (currentTab !== "library") { e.currentTarget.style.background = "rgba(139,148,158,0.08)"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.borderColor = "rgba(139,148,158,0.12)"; e.currentTarget.style.transform = "translateX(4px)"; } }}
-                            onMouseLeave={e => { if (currentTab !== "library") { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#8b949e"; e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateX(0)"; } }}
                         >
                             📚 Library
                         </button>
@@ -294,17 +290,12 @@ export default function MainContentModule() {
                             style={{ ...s.searchBtn, ...(tmdbLoading ? s.searchBtnDisabled : {}) }}
                             onClick={runNewSearch}
                             disabled={tmdbLoading}
-                            onMouseEnter={e => { if (!tmdbLoading) { e.currentTarget.style.background = "linear-gradient(135deg, #1a8cff 0%, #0560c7 100%)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0, 123, 255, 0.3)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
-                            onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #007BFF 0%, #0969da 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0, 123, 255, 0.15)"; e.currentTarget.style.transform = "translateY(0)"; }}
                         >
                             {tmdbLoading ? "Searching..." : "Search"}
                         </button>
                     )}
                     {currentTab === "browse" && hasSearched && (
-                        <button style={s.clearBtn} onClick={clearSearch}
-                            onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,148,158,0.08)"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.borderColor = "#484f58"; e.currentTarget.style.transform = "translateX(-2px)"; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#8b949e"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.transform = "translateX(0)"; }}
-                        >
+                        <button style={s.clearBtn} onClick={clearSearch}>
                             ← Browse
                         </button>
                     )}
@@ -321,8 +312,6 @@ export default function MainContentModule() {
                                         key={g || "all"}
                                         style={{ ...s.genreBtn, ...(browseGenre === g ? s.genreBtnActive : {}) }}
                                         onClick={() => setBrowseGenre(g)}
-                                        onMouseEnter={e => { if (browseGenre !== g) { e.currentTarget.style.background = "rgba(139,148,158,0.06)"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.borderColor = "rgba(139,148,158,0.1)"; } }}
-                                        onMouseLeave={e => { if (browseGenre !== g) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#8b949e"; e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.borderColor = "transparent"; } }}
                                     >
                                         {g || "All"}
                                     </button>
@@ -339,8 +328,6 @@ export default function MainContentModule() {
                                         key={p.key}
                                         style={{ ...s.periodBtn, ...(browsePeriod === p.key ? s.periodBtnActive : {}) }}
                                         onClick={() => setBrowsePeriod(p.key)}
-                                        onMouseEnter={e => { if (browsePeriod !== p.key) { e.currentTarget.style.background = "rgba(139,148,158,0.06)"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.borderColor = "rgba(139,148,158,0.1)"; } }}
-                                        onMouseLeave={e => { if (browsePeriod !== p.key) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#8b949e"; e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.borderColor = "transparent"; } }}
                                     >
                                         {p.label}
                                     </button>
@@ -374,10 +361,7 @@ export default function MainContentModule() {
                             {torrentMode && (
                                 <div style={s.torrentContainer}>
                                     <div style={s.torrentHeader}>
-                                        <button style={s.backBtn} onClick={handleBackFromTorrents}
-                                        onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; e.currentTarget.style.borderColor = "#484f58"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.transform = "translateX(-3px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)"; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.boxShadow = "none"; }}
-                                        >
+                                        <button style={s.backBtn} onClick={handleBackFromTorrents}>
                                             ← Back to results
                                         </button>
                                         <span style={s.torrentTitle}>Torrents : <strong style={{ color: "#e6edf3" }}>{torrentTitle}</strong></span>
@@ -611,7 +595,7 @@ const s = {
         alignItems: "center",
         gap: 8,
         padding: "9px 12px",
-        border: "1px solid transparent",
+        border: "none",
         borderRadius: 6,
         background: "transparent",
         color: "#8b949e",
@@ -623,16 +607,11 @@ const s = {
         outline: "none",
         WebkitAppearance: "none",
         whiteSpace: "nowrap",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
-        position: "relative",
-        overflow: "hidden",
     },
     navBtnActive: {
-        background: "rgba(0, 123, 255, 0.12)",
-        color: "#58a6ff",
+        background: "#313946",
+        color: "#e6edf3",
         fontWeight: 600,
-        borderColor: "rgba(0, 123, 255, 0.2)",
-        boxShadow: "0 0 12px rgba(0, 123, 255, 0.06)",
     },
     navBtnDisabled: {
         color: "#484f58",
@@ -672,12 +651,11 @@ const s = {
         outline: "none",
         fontFamily: "'Inter', sans-serif",
         boxSizing: "border-box",
-        transition: "border-color 0.35s cubic-bezier(0.25,1,0.3,1), box-shadow 0.35s cubic-bezier(0.25,1,0.3,1), background 0.3s ease",
     },
     searchBtn: {
         width: "100%",
         height: 32,
-        background: "linear-gradient(135deg, #007BFF 0%, #0969da 100%)",
+        background: "#007BFF",
         color: "#fff",
         border: "none",
         borderRadius: 6,
@@ -685,10 +663,6 @@ const s = {
         fontWeight: 600,
         cursor: "pointer",
         fontFamily: "'Inter', sans-serif",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
-        boxShadow: "0 2px 8px rgba(0, 123, 255, 0.15)",
-        position: "relative",
-        overflow: "hidden",
     },
     searchBtnDisabled: {
         opacity: 0.6,
@@ -705,7 +679,6 @@ const s = {
         fontWeight: 500,
         cursor: "pointer",
         fontFamily: "'Inter', sans-serif",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     genresList: {
         display: "flex",
@@ -716,7 +689,7 @@ const s = {
         display: "flex",
         alignItems: "center",
         padding: "5px 10px",
-        border: "1px solid transparent",
+        border: "none",
         borderRadius: 5,
         background: "transparent",
         color: "#8b949e",
@@ -727,14 +700,11 @@ const s = {
         textAlign: "left",
         outline: "none",
         WebkitAppearance: "none",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
-        position: "relative",
     },
     genreBtnActive: {
-        background: "rgba(0, 123, 255, 0.12)",
-        color: "#58a6ff",
+        background: "rgba(0, 123, 255, 0.1)",
+        color: "#007BFF",
         fontWeight: 600,
-        borderColor: "rgba(0, 123, 255, 0.2)",
     },
     periodList: {
         display: "flex",
@@ -745,7 +715,7 @@ const s = {
         display: "flex",
         alignItems: "center",
         padding: "5px 10px",
-        border: "1px solid transparent",
+        border: "none",
         borderRadius: 5,
         background: "transparent",
         color: "#8b949e",
@@ -756,13 +726,11 @@ const s = {
         textAlign: "left",
         outline: "none",
         WebkitAppearance: "none",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     periodBtnActive: {
-        background: "rgba(0, 123, 255, 0.12)",
-        color: "#58a6ff",
+        background: "rgba(0, 123, 255, 0.1)",
+        color: "#007BFF",
         fontWeight: 600,
-        borderColor: "rgba(0, 123, 255, 0.2)",
     },
     sortSelect: {
         width: "100%",
@@ -776,7 +744,6 @@ const s = {
         cursor: "pointer",
         outline: "none",
         boxSizing: "border-box",
-        transition: "border-color 0.35s cubic-bezier(0.25,1,0.3,1), box-shadow 0.35s cubic-bezier(0.25,1,0.3,1)",
     },
     sortOption: {
         background: "#0d1117",
@@ -848,7 +815,6 @@ const s = {
         borderRadius: 6,
         cursor: "pointer",
         whiteSpace: "nowrap",
-        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     torrentTitle: {
         fontSize: "0.95rem",
