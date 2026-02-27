@@ -93,17 +93,21 @@ export default function WatchModal({
         return () => document.removeEventListener("keydown", onKey);
     }, [onClose]);
 
-    // Build a set of torrent hashes that are completed (files are playable)
-    const completedHashes = new Set(
-        torrents.filter(t => t.status === "completed").map(t => t.hash)
+    // Build a set of torrent hashes that are watchable (files are playable)
+    const watchableHashes = new Set(
+        torrents.filter(t => t.can_watch).map(t => t.hash)
     );
 
-    // Tag each file with playability based on its torrent's status
+    // Tag each file with playability based on its torrent's can_watch
     const taggedFiles = (allFiles || []).map(f => ({
         ...f,
-        playable: !f.torrent_hash || completedHashes.has(f.torrent_hash),
+        playable: !f.torrent_hash || watchableHashes.has(f.torrent_hash),
     }));
     const playableFiles = taggedFiles.filter(f => f.playable);
+
+    // Split torrents: downloading (not yet watchable) vs available (can_watch)
+    const downloadingTorrents = torrents.filter(t => !t.can_watch);
+    const availableTorrents = torrents.filter(t => t.can_watch);
 
     const hasFiles = taggedFiles.length > 0;
     const hasPlayable = playableFiles.length > 0;
@@ -123,7 +127,7 @@ export default function WatchModal({
                     <button style={styles.closeBtn} onClick={onClose} title="Close (Esc)">{"\u2715"}</button>
                 </div>
 
-                {/* Per-torrent controls */}
+                {/* Per-torrent controls — always visible */}
                 {!isPlayerMode && torrents.length > 0 && (
                     <div style={styles.torrentsPanel}>
                         <div style={styles.panelHeader}>
@@ -143,7 +147,7 @@ export default function WatchModal({
                     </div>
                 )}
 
-                {/* Source picker */}
+                {/* Source picker — playable files from watchable torrents */}
                 {isPickerMode && (
                     <div style={styles.pickerBody}>
                         <div style={styles.pickerLabel}>
@@ -187,7 +191,7 @@ export default function WatchModal({
                 {/* No files yet */}
                 {!isPlayerMode && !hasFiles && (
                     <div style={styles.noFilesMsg}>
-                        {torrents.some(t => t.status === "downloading")
+                        {downloadingTorrents.length > 0
                             ? "No playable video files yet \u2014 download is still in progress."
                             : "No playable video files found."}
                         {onRefresh && (

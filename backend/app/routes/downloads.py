@@ -181,25 +181,32 @@ async def delete_torrent(
         logger.error(f"Failed to delete torrent {torrent_hash}: {e}")
         raise HTTPException(status_code=500, detail="Could not delete torrent")
 
-    # Collect imdb_ids affected before deleting rows
+    from sqlalchemy import func as sa_func
+
+    hash_lower = torrent_hash.lower()
+
+    # Collect imdb_ids affected before deleting rows (case-insensitive)
     result = await session.execute(
-        select(Download.imdb_id).where(Download.torrent_hash == torrent_hash).distinct()
+        select(Download.imdb_id).where(
+            sa_func.lower(Download.torrent_hash) == hash_lower
+        ).distinct()
     )
     affected_imdb_ids = [row[0] for row in result.all() if row[0]]
 
-    # Delete all download rows with this hash
+    # Delete all download rows with this hash (case-insensitive)
     await session.execute(
-        sql_delete(Download).where(Download.torrent_hash == torrent_hash)
+        sql_delete(Download).where(sa_func.lower(Download.torrent_hash) == hash_lower)
     )
 
     # Clean up films that were linked to this hash and have no remaining downloads.
     # Also handle noid-{hash} films.
     films_to_check = set(affected_imdb_ids)
+    films_to_check.add(f"noid-{hash_lower}")
     films_to_check.add(f"noid-{torrent_hash}")
 
     # Also look up any Film whose torrent_hash column matches the deleted hash
     res = await session.execute(
-        select(Film).where(Film.torrent_hash == torrent_hash)
+        select(Film).where(sa_func.lower(Film.torrent_hash) == hash_lower)
     )
     stale_films = res.scalars().all()
     for f in stale_films:
@@ -218,13 +225,21 @@ async def delete_torrent(
             )
         else:
             # Film still exists but its torrent_hash may point to the deleted hash.
-            # Update it to a remaining download's hash.
+            # Update it to a remaining download's hash and reset status so
+            # refresh_downloading_films re-evaluates it from the remaining torrents.
             film_res = await session.execute(
                 select(Film).where(Film.imdb_id == imdb_id)
             )
             film_obj = film_res.scalar_one_or_none()
-            if film_obj and film_obj.torrent_hash and film_obj.torrent_hash.lower() == torrent_hash.lower():
-                film_obj.torrent_hash = remaining_row[0]
+            if film_obj:
+                if film_obj.torrent_hash and film_obj.torrent_hash.lower() == hash_lower:
+                    film_obj.torrent_hash = remaining_row[0]
+                # Force re-evaluation: reset to downloading so refresh picks it up
+                film_obj.status = "downloading"
+
+    # Re-evaluate film statuses immediately from qBittorrent
+    from app.services.film_service import FilmService
+    await FilmService.refresh_downloading_films(session)
 
     await session.commit()
     return {"ok": True}

@@ -26,6 +26,7 @@ class FilmResponse(BaseModel):
     # Computed by the route handler
     can_watch: bool = False
     watch_ready_in: Optional[int] = None   # seconds until watchable (0 if now, None if unknown)
+    availability: str = "not_available"    # fully_available | partially_available | downloading | not_available
 
     created_at: datetime
 

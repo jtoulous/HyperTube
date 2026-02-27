@@ -103,6 +103,7 @@ export default function MainContentModule() {
                 download_speed: f.download_speed,
                 can_watch: f.can_watch,
                 watch_ready_in: f.watch_ready_in,
+                availability: f.availability,
                 duration: f.duration,
                 eta: f.eta,
             }));
@@ -334,16 +335,28 @@ export default function MainContentModule() {
         if (!confirm("Delete this torrent and all its data?")) return;
         try {
             await downloadsApi.deleteTorrent(hash);
-            loadFilms();
-            // If no torrents remain, close the modal
-            const remaining = playerTorrents.filter(t => t.hash !== hash);
-            if (remaining.length === 0) {
-                setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
-            } else {
-                refreshModal();
+            // Refresh library first so the film disappears if it was removed server-side
+            await loadFilms();
+            // Re-fetch torrents for the current film to see what's left
+            if (playerImdbId) {
+                try {
+                    const torrentsRes = await filmsApi.getFilmTorrents(playerImdbId);
+                    const remaining = torrentsRes.data?.torrents || [];
+                    if (remaining.length === 0) {
+                        // Film was deleted server-side — close modal
+                        setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
+                    } else {
+                        setPlayerTorrents(remaining);
+                        const filesRes = await filmsApi.getFilmFiles(playerImdbId).catch(() => ({ data: { files: [] } }));
+                        setPlayerAllFiles(filesRes.data?.files || []);
+                    }
+                } catch {
+                    // Film no longer exists on server — close modal
+                    setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
+                }
             }
         } catch (e) { console.error(e); }
-    }, [loadFilms, refreshModal, playerTorrents]);
+    }, [loadFilms, playerImdbId]);
     const handleTorrentRecheck = useCallback(async (hash) => {
         try { await downloadsApi.recheckTorrent(hash); refreshModal(); } catch (e) { console.error(e); }
     }, [refreshModal]);

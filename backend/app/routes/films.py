@@ -34,6 +34,15 @@ async def list_films(
         data = FilmResponse.model_validate(f)
         data.can_watch = can_watch
         data.watch_ready_in = ready_in
+        # Compute availability string
+        if f.status == "completed" and can_watch:
+            data.availability = "fully_available"
+        elif can_watch:
+            data.availability = "partially_available"
+        elif f.status == "downloading":
+            data.availability = "downloading"
+        else:
+            data.availability = "not_available"
         results.append(data)
     return results
 
@@ -222,6 +231,11 @@ async def get_film_torrents(
                 downloaded = t.get("downloaded", 0)
                 progress = (downloaded / total * 100) if total > 0 else (t.get("progress", 0) * 100)
 
+                # Per-torrent availability
+                t_can_watch, t_ready_in = FilmService.compute_torrent_can_watch(
+                    mapped, round(progress, 1), t.get("dlspeed", 0), total, film.duration,
+                )
+
                 torrents.append({
                     "hash": h,
                     "name": t.get("name", title_map.get(h, "Unknown")),
@@ -231,6 +245,8 @@ async def get_film_torrents(
                     "eta": t.get("eta"),
                     "total_bytes": total,
                     "downloaded_bytes": downloaded,
+                    "can_watch": t_can_watch,
+                    "watch_ready_in": t_ready_in,
                 })
         except Exception as e:
             logger.error(f"Failed to fetch torrent info for film {imdb_id}: {e}")

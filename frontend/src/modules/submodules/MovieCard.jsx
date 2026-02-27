@@ -34,7 +34,7 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
 
     const hasPoster = result.poster && result.poster !== "N/A";
     const status = result.status;       // "downloading" | "completed" | "error" | "paused"  (library only)
-    const canWatch = result.can_watch;   // boolean (library only)
+    const availability = result.availability; // "fully_available" | "partially_available" | "downloading" | "not_available"
     const progress = result.progress;    // 0-100 (library only)
     const readyIn = result.watch_ready_in;
 
@@ -62,13 +62,13 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
                 {/* Status / badge overlays */}
                 {isWatched && <div style={styles.watchedBadge}>✓ Watched</div>}
 
-                {libraryMode && status === "completed" && canWatch && !isWatched && (
+                {libraryMode && availability === "fully_available" && !isWatched && (
                     <div style={styles.readyBadge}>Fully Available</div>
                 )}
-                {libraryMode && status === "downloading" && canWatch && (
+                {libraryMode && availability === "partially_available" && (
                     <div style={styles.canWatchBadge}>Partially Available</div>
                 )}
-                {libraryMode && status === "downloading" && !canWatch && (
+                {libraryMode && availability === "downloading" && (
                     <div style={styles.downloadingBadge}>
                         ⬇ {Math.round(progress || 0)}%
                         {readyIn != null && readyIn > 0 && (
@@ -76,15 +76,15 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
                         )}
                     </div>
                 )}
-                {libraryMode && status === "paused" && (
+                {libraryMode && availability === "not_available" && status === "paused" && (
                     <div style={styles.pausedBadge}>⏸ Paused</div>
                 )}
-                {libraryMode && status === "error" && (
+                {libraryMode && availability === "not_available" && status === "error" && (
                     <div style={styles.errorBadge}>✕ Error</div>
                 )}
 
                 {/* Progress bar overlay for downloading films */}
-                {libraryMode && status === "downloading" && (
+                {libraryMode && (status === "downloading" || availability === "partially_available") && (
                     <div style={styles.progressBarBg}>
                         <div style={{ ...styles.progressBarFill, width: `${Math.min(progress || 0, 100)}%` }} />
                     </div>

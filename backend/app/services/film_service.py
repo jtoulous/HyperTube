@@ -106,15 +106,14 @@ class FilmService:
     async def refresh_downloading_films(session: AsyncSession):
         """Poll qBittorrent for non-completed films and update the DB.
 
-        Only checks films that are still in progress (downloading, paused,
-        error) so that completed films stay completed even if the torrent
-        has been removed from qBittorrent.
+        Considers ALL torrent hashes per film (from Film.torrent_hash and the
+        Downloads table) so that multi-torrent films reflect their best status.
         """
         from app.services.torrent_service import TorrentService
+        from app.models.download import Download
 
         result = await session.execute(
             select(Film).where(
-                Film.torrent_hash.isnot(None),
                 Film.status.in_(["downloading", "paused", "error"]),
             )
         )
@@ -122,64 +121,123 @@ class FilmService:
         if not all_films:
             return
 
-        # Gather all hashes in one call
-        hash_to_film = {}
+        film_by_imdb: dict[str, Film] = {f.imdb_id: f for f in all_films}
+
+        # Gather ALL hashes per film
+        hashes_by_imdb: dict[str, set[str]] = {}
         for f in all_films:
             if f.torrent_hash:
-                hash_to_film[f.torrent_hash.lower()] = f
-        if not hash_to_film:
+                hashes_by_imdb.setdefault(f.imdb_id, set()).add(f.torrent_hash.lower())
+            if f.imdb_id.startswith("noid-"):
+                hashes_by_imdb.setdefault(f.imdb_id, set()).add(f.imdb_id[5:].lower())
+
+        imdb_ids = list(film_by_imdb.keys())
+        if imdb_ids:
+            dl_result = await session.execute(
+                select(Download.imdb_id, Download.torrent_hash).where(
+                    Download.imdb_id.in_(imdb_ids)
+                ).distinct()
+            )
+            for row in dl_result.all():
+                if row[0] and row[1]:
+                    hashes_by_imdb.setdefault(row[0], set()).add(row[1].lower())
+
+        # Collect all unique hashes
+        all_hashes: set[str] = set()
+        for hs in hashes_by_imdb.values():
+            all_hashes.update(hs)
+
+        if not all_hashes:
             return
 
         try:
             async with TorrentService() as ts:
-                hashes_str = "|".join(hash_to_film.keys())
+                hashes_str = "|".join(all_hashes)
                 torrents = await ts.list_torrents(hashes=hashes_str)
 
             COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP",
-                                "pausedUP", "stoppedUP"}  # seeding paused = download done
-            PAUSED_STATES = {"pausedDL", "stoppedDL"}  # download paused
+                                "pausedUP", "stoppedUP"}
+            PAUSED_STATES = {"pausedDL", "stoppedDL"}
             ERROR_STATES = {"error", "missingFiles", "unknown"}
+            STATUS_RANK = {"completed": 4, "downloading": 3, "paused": 2, "error": 1}
 
-            returned_hashes = set()
-            for t in torrents:
-                h = t["hash"].lower()
-                returned_hashes.add(h)
-                film = hash_to_film.get(h)
+            qbt_map = {t["hash"].lower(): t for t in torrents}
+            returned_hashes = set(qbt_map.keys())
+
+            for imdb_id, hashes in hashes_by_imdb.items():
+                film = film_by_imdb.get(imdb_id)
                 if not film:
                     continue
 
-                state = t.get("state", "")
-                if state in COMPLETED_STATES:
-                    film.status = "completed"
-                elif state in PAUSED_STATES:
-                    film.status = "paused"
-                elif state in ERROR_STATES:
-                    film.status = "error"
+                best_rank = 0
+                best_mapped = None
+                best_t = None
+
+                for h in hashes:
+                    t = qbt_map.get(h)
+                    if not t:
+                        continue
+
+                    state = t.get("state", "")
+                    if state in COMPLETED_STATES:
+                        mapped = "completed"
+                    elif state in PAUSED_STATES:
+                        mapped = "paused"
+                    elif state in ERROR_STATES:
+                        mapped = "error"
+                    else:
+                        mapped = "downloading"
+
+                    rank = STATUS_RANK.get(mapped, 0)
+                    if rank > best_rank:
+                        best_rank = rank
+                        best_mapped = mapped
+                        best_t = t
+
+                if best_t and best_mapped:
+                    film.status = best_mapped
+                    film.downloaded_bytes = best_t.get("downloaded", 0)
+                    film.total_bytes = best_t.get("size", 0)
+                    if film.total_bytes > 0:
+                        film.progress = (film.downloaded_bytes / film.total_bytes) * 100.0
+                    else:
+                        film.progress = best_t.get("progress", 0.0) * 100.0
+                    film.download_speed = best_t.get("dlspeed", 0)
+                    film.eta = best_t.get("eta")
+
+                    if film.progress >= 99.9:
+                        film.status = "completed"
                 else:
-                    film.status = "downloading"
+                    # No torrents found in qBittorrent for this film
+                    if not any(h in returned_hashes for h in hashes):
+                        # Check if any Download rows still reference this film
+                        dl_check = await session.execute(
+                            select(Download.torrent_hash).where(
+                                Download.imdb_id == imdb_id
+                            ).limit(1)
+                        )
+                        if dl_check.first():
+                            # Downloads exist but torrents gone from qBittorrent
+                            logger.info(f"All torrents for film {imdb_id} gone from qBittorrent, marking error")
+                            film.status = "error"
+                            film.download_speed = 0
+                            film.eta = None
+                        else:
+                            # No downloads, no torrents → orphaned film, delete it
+                            logger.info(f"Film {imdb_id} has no downloads and no torrents, deleting")
+                            await session.delete(film)
 
-                film.downloaded_bytes = t.get("downloaded", 0)
-                film.total_bytes = t.get("size", 0)
-                if film.total_bytes > 0:
-                    film.progress = (film.downloaded_bytes / film.total_bytes) * 100.0
-                else:
-                    film.progress = t.get("progress", 0.0) * 100.0
-                film.download_speed = t.get("dlspeed", 0)
-                film.eta = t.get("eta")
-
-                # Safety net: if progress >= 100% the film is done regardless
-                # of what qBittorrent reports as its state
-                if film.progress >= 99.9:
-                    film.status = "completed"
-
-            # Films whose torrent_hash is no longer known by qBittorrent
-            # (deleted externally or via our own delete route).
-            for h, film in hash_to_film.items():
-                if h not in returned_hashes:
-                    logger.info(f"Torrent {h} for film {film.imdb_id} gone from qBittorrent, marking error")
-                    film.status = "error"
-                    film.download_speed = 0
-                    film.eta = None
+            # Also clean up any non-completed films that have no hashes at all
+            for imdb_id, film in film_by_imdb.items():
+                if imdb_id not in hashes_by_imdb or not hashes_by_imdb[imdb_id]:
+                    dl_check = await session.execute(
+                        select(Download.torrent_hash).where(
+                            Download.imdb_id == imdb_id
+                        ).limit(1)
+                    )
+                    if not dl_check.first():
+                        logger.info(f"Film {imdb_id} has no hashes and no downloads, deleting")
+                        await session.delete(film)
 
             await session.flush()
         except Exception as e:
@@ -193,10 +251,15 @@ class FilmService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    def compute_can_watch(film: Film) -> tuple[bool, int | None]:
+    def compute_torrent_can_watch(
+        status: str,
+        progress: float,
+        download_speed: int,
+        total_bytes: int,
+        duration: int | None,
+    ) -> tuple[bool, int | None]:
         """
-        Determine whether a sequentially-downloading film can be streamed
-        without interruption.
+        Per-torrent availability computation.
 
         Returns (can_watch, ready_in_seconds):
             can_watch        – True means playback can start now.
@@ -205,51 +268,52 @@ class FilmService:
         Math (uniform-bitrate assumption):
             At time *t* after pressing play we need:
                 downloaded_fraction + (speed * t / total) >= t / duration
-            Worst case is t = duration to min_p = 1 - speed*duration/total
+            Worst case is t = duration → min_p = 1 - speed*duration/total
         """
-        if film.status == "completed":
+        if status == "completed":
             return True, 0
 
-        if film.status in ("error", "paused"):
+        if status in ("error", "paused"):
             return False, None
 
         # downloading
-        progress_frac = (film.progress or 0) / 100.0
+        progress_frac = (progress or 0) / 100.0
 
-        # If the file is essentially complete, allow watching immediately
         if progress_frac >= 0.99:
             return True, 0
 
-        dlspeed = film.download_speed or 0
-        total = film.total_bytes or 0
-        dur = film.duration  # seconds
+        dlspeed = download_speed or 0
+        total = total_bytes or 0
+        dur = duration
 
-        # If any critical value is missing we can't compute
         if not dur or dur <= 0 or total <= 0:
-            # Fallback: allow if almost done
             return (progress_frac >= 0.95, None)
 
         effective_speed = dlspeed * SPEED_SAFETY_FACTOR
-
-        bitrate = total / dur  # average bytes/sec for the file
+        bitrate = total / dur
 
         if effective_speed >= bitrate and progress_frac > 0.01:
-            # Download is faster than real-time playback, safe to watch
             return True, 0
 
-        # Minimum progress fraction needed
         min_p = max(0.0, 1.0 - (effective_speed * dur) / total) + BUFFER_MARGIN
 
         if progress_frac >= min_p:
             return True, 0
 
-        # Not ready yet — estimate how long until we reach min_p
         if dlspeed <= 0:
             return False, None
 
         deficit_bytes = (min_p - progress_frac) * total
         ready_in = int(deficit_bytes / dlspeed) + 1
         return False, ready_in
+
+    @staticmethod
+    def compute_can_watch(film: Film) -> tuple[bool, int | None]:
+        """Film-level convenience wrapper around compute_torrent_can_watch."""
+        return FilmService.compute_torrent_can_watch(
+            film.status, film.progress, film.download_speed,
+            film.total_bytes, film.duration,
+        )
 
     @staticmethod
     async def mark_watched(
