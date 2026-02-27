@@ -3,7 +3,7 @@
     "id": "sitelink",
     "type": "inputstring",
     "name": "Site Link",
-    "value": "https://thepiratebay.org/"
+    "value": "https://therarbg.to/"
   },
   {
     "id": "cookieheader",
@@ -18,10 +18,18 @@
     "value": null
   },
   {
-    "id": "filterbyuploader",
-    "type": "inputstring",
-    "name": "Filter by Uploader",
-    "value": null
+    "id": "sortrequestedfromsite",
+    "type": "inputselect",
+    "name": "Sort requested from site",
+    "value": "-a",
+    "options": {
+      "-a": "created desc",
+      "a": "created asc",
+      "-se": "seeders desc",
+      "se": "seeders asc",
+      "-s": "size desc",
+      "s": "size asc"
+    }
   },
   {
     "id": "tags",

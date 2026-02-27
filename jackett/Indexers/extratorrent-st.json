@@ -3,7 +3,7 @@
     "id": "sitelink",
     "type": "inputstring",
     "name": "Site Link",
-    "value": "https://eztvx.to/"
+    "value": "https://extratorrent.st/"
   },
   {
     "id": "cookieheader",
@@ -15,7 +15,7 @@
     "id": "lasterror",
     "type": "hiddendata",
     "name": "LastError",
-    "value": null
+    "value": "Exception (extratorrent-st): Challenge detected but FlareSolverr is not configured: Challenge detected but FlareSolverr is not configured"
   },
   {
     "id": "tags",

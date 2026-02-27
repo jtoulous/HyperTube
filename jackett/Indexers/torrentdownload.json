@@ -3,13 +3,13 @@
     "id": "sitelink",
     "type": "inputstring",
     "name": "Site Link",
-    "value": "https://thepiratebay.org/"
+    "value": "https://www.torrentdownload.info/"
   },
   {
     "id": "cookieheader",
     "type": "hiddendata",
     "name": "CookieHeader",
-    "value": ""
+    "value": "PHPSESSID=s6c6qd9a5vhmq650r5f3dnkde1"
   },
   {
     "id": "lasterror",
@@ -18,10 +18,14 @@
     "value": null
   },
   {
-    "id": "filterbyuploader",
-    "type": "inputstring",
-    "name": "Filter by Uploader",
-    "value": null
+    "id": "sortrequestedfromsite(appliesonlytosearchwithkeywords)",
+    "type": "inputselect",
+    "name": "Sort requested from site (Applies only to Search with Keywords)",
+    "value": "d",
+    "options": {
+      "d": "created",
+      "_": "seeders"
+    }
   },
   {
     "id": "tags",
