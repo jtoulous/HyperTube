@@ -10,7 +10,7 @@ class Film(Base):
     __tablename__ = "films"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    imdb_id = Column(String(20), nullable=False, unique=True, index=True)
+    imdb_id = Column(String(80), nullable=False, unique=True, index=True)
     title = Column(String(512), nullable=False)
     poster = Column(Text, nullable=True)
     year = Column(String(10), nullable=True)
@@ -40,7 +40,7 @@ class WatchedFilm(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    imdb_id = Column(String(20), nullable=False, index=True)
+    imdb_id = Column(String(80), nullable=False, index=True)
     stopped_at = Column(Integer, nullable=False, default=0)         # playback position in seconds
     is_completed = Column(Boolean, nullable=False, default=False)   # true if watched to near the end
     watched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

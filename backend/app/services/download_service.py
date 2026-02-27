@@ -99,12 +99,12 @@ class DownloadService:
 
         logger.info(f"Download created: {download.id} — {title} — hash:{torrent_hash}")
 
-        # Register in the global films catalogue immediately (with TMDB metadata)
-        if imdb_id:
-            try:
-                await self._register_film(session, imdb_id, title, torrent_hash)
-            except Exception as e:
-                logger.warning(f"Failed to register film {imdb_id} at download start: {e}")
+        # Register in the global films catalogue immediately
+        effective_id = imdb_id or f"noid-{torrent_hash}"
+        try:
+            await self._register_film(session, effective_id, title, torrent_hash)
+        except Exception as e:
+            logger.warning(f"Failed to register film {effective_id} at download start: {e}")
 
         return download
 
@@ -185,11 +185,12 @@ class DownloadService:
                     download.progress = progress.get("progress", 0.0) * 100.0
 
                 # Sync global films catalogue with live progress
-                if download.imdb_id:
+                effective_film_id = download.imdb_id or (f"noid-{download.torrent_hash}" if download.torrent_hash else None)
+                if effective_film_id:
                     try:
                         await FilmService.update_film_progress(
                             session,
-                            imdb_id=download.imdb_id,
+                            imdb_id=effective_film_id,
                             status=download.status.value,
                             progress=download.progress,
                             download_speed=progress.get("dlspeed", 0),
@@ -198,15 +199,21 @@ class DownloadService:
                             eta=progress.get("eta"),
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to sync film progress for {download.imdb_id}: {e}")
+                        logger.warning(f"Failed to sync film progress for {effective_film_id}: {e}")
 
         return download
 
     async def _register_film(self, session: AsyncSession, imdb_id: str, fallback_title: str, torrent_hash: str | None = None):
-        """Fetch TMDB metadata and upsert into the global films catalogue."""
-        from app.services.tmdb_service import TmdbService
-        tmdb = TmdbService()
-        details = await tmdb.get_by_imdb(imdb_id)
+        """Fetch TMDB metadata and upsert into the global films catalogue.
+        For synthetic IDs (noid-*), skip the TMDB lookup entirely.
+        """
+        details = None
+
+        # Only look up TMDB for real IMDb IDs
+        if imdb_id.startswith("tt"):
+            from app.services.tmdb_service import TmdbService
+            tmdb = TmdbService()
+            details = await tmdb.get_by_imdb(imdb_id)
 
         # Parse duration from TMDB runtime string (e.g. "120 min" to 7200 seconds)
         duration_sec = None

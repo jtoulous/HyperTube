@@ -33,7 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 -- All films known to the server (downloading or completed)
 CREATE TABLE IF NOT EXISTS films (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    imdb_id VARCHAR(20) NOT NULL UNIQUE,
+    imdb_id VARCHAR(80) NOT NULL UNIQUE,
     title VARCHAR(512) NOT NULL,
     poster TEXT,
     year VARCHAR(10),
@@ -57,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_films_imdb_id ON films(imdb_id);
 CREATE TABLE IF NOT EXISTS watched_films (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    imdb_id VARCHAR(20) NOT NULL,
+    imdb_id VARCHAR(80) NOT NULL,
     stopped_at INTEGER DEFAULT 0,         -- playback position in seconds where user stopped
     is_completed BOOLEAN DEFAULT FALSE,   -- true if user watched to near the end (<5min remaining)
     watched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -515,26 +515,54 @@ export default function MainContentModule() {
                         {!libraryLoading && filteredLibraryMovies.length === 0 && libraryMovies.length > 0 && (
                             <div style={s.libraryEmpty}>No movies match your filters.</div>
                         )}
-                        {filteredLibraryMovies.length > 0 && (
-                            <>
-                                <div style={s.libraryCount}>
-                                    {filteredLibraryMovies.length} movie{filteredLibraryMovies.length > 1 ? "s" : ""}
-                                </div>
-                                <div style={s.movieGrid}>
-                                    {filteredLibraryMovies.map((movie, idx) => (
-                                        <MovieCard
-                                            key={movie.imdbid || movie.title || idx}
-                                            result={movie}
-                                            isWatched={!!(movie.imdbid && watchedImdbIds.get(movie.imdbid)?.is_completed)}
-                                            watchProgress={movie.imdbid ? watchedImdbIds.get(movie.imdbid) : undefined}
-                                            isLogged={isLogged}
-                                            onCardClick={movie.can_watch ? () => handleWatchFilm(movie) : undefined}
-                                            libraryMode
-                                        />
-                                    ))}
-                                </div>
-                            </>
-                        )}
+                        {(() => {
+                            const identified = filteredLibraryMovies.filter(m => !m.imdbid?.startsWith("noid-"));
+                            const other = filteredLibraryMovies.filter(m => m.imdbid?.startsWith("noid-"));
+                            return (
+                                <>
+                                    {identified.length > 0 && (
+                                        <>
+                                            <div style={s.libraryCount}>
+                                                {identified.length} movie{identified.length > 1 ? "s" : ""}
+                                            </div>
+                                            <div style={s.movieGrid}>
+                                                {identified.map((movie, idx) => (
+                                                    <MovieCard
+                                                        key={movie.imdbid || movie.title || idx}
+                                                        result={movie}
+                                                        isWatched={!!(movie.imdbid && watchedImdbIds.get(movie.imdbid)?.is_completed)}
+                                                        watchProgress={movie.imdbid ? watchedImdbIds.get(movie.imdbid) : undefined}
+                                                        isLogged={isLogged}
+                                                        onCardClick={movie.can_watch ? () => handleWatchFilm(movie) : undefined}
+                                                        libraryMode
+                                                    />
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                    {other.length > 0 && (
+                                        <>
+                                            <div style={s.librarySectionHeader}>
+                                                <span style={s.librarySectionTitle}>Other</span>
+                                                <span style={s.librarySectionSubtitle}>{other.length} unidentified torrent{other.length > 1 ? "s" : ""}</span>
+                                            </div>
+                                            <div style={s.movieGrid}>
+                                                {other.map((movie, idx) => (
+                                                    <MovieCard
+                                                        key={movie.imdbid || movie.title || idx}
+                                                        result={movie}
+                                                        isWatched={false}
+                                                        isLogged={isLogged}
+                                                        onCardClick={movie.can_watch ? () => handleWatchFilm(movie) : undefined}
+                                                        libraryMode
+                                                    />
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </>
+                            );
+                        })()}
                     </div>
                 )}
             </div>
@@ -920,6 +948,25 @@ const s = {
         padding: "2px 0",
         letterSpacing: "0.3px",
         textTransform: "uppercase",
+        fontWeight: 500,
+    },
+    librarySectionHeader: {
+        display: "flex",
+        alignItems: "baseline",
+        gap: 10,
+        padding: "18px 0 4px",
+        marginTop: 12,
+        borderTop: "1px solid #21262d",
+    },
+    librarySectionTitle: {
+        fontSize: "0.92rem",
+        fontWeight: 700,
+        color: "#c9d1d9",
+        letterSpacing: "0.3px",
+    },
+    librarySectionSubtitle: {
+        fontSize: "0.76rem",
+        color: "#484f58",
         fontWeight: 500,
     },
 };
