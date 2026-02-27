@@ -6,7 +6,7 @@ from app.models.user import User
 from app.security import get_current_user
 from app.services.film_service import FilmService
 from app.services.torrent_service import TorrentService
-from app.schemas.film import FilmResponse, WatchedFilmResponse, MarkWatchedRequest, UpdateProgressRequest
+from app.schemas.film import FilmResponse, WatchedFilmResponse, MarkWatchedRequest, UpdateProgressRequest, CommentResponse, CreateCommentRequest
 import logging
 
 logger = logging.getLogger(__name__)
@@ -116,5 +116,61 @@ async def unmark_film_watched(
     deleted = await FilmService.unmark_watched(session, current_user.id, imdb_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Film not in watched list")
+    await session.commit()
+    return {"ok": True}
+
+
+# ─── Comments ────────────────────────────────────────────────────
+
+@router.get("/{imdb_id}/comments")
+async def get_comments(
+    imdb_id: str,
+    session: AsyncSession = Depends(get_db),
+):
+    """Get all comments for a film."""
+    return await FilmService.get_comments(session, imdb_id)
+
+
+@router.post("/{imdb_id}/comments")
+async def add_comment(
+    imdb_id: str,
+    body: CreateCommentRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add a comment on a film."""
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+    if len(text) > 2000:
+        raise HTTPException(status_code=400, detail="Comment too long (max 2000 chars)")
+    comment = await FilmService.add_comment(session, current_user.id, imdb_id, text)
+    await session.commit()
+    return {
+        "id": str(comment.id),
+        "user_id": str(comment.user_id),
+        "username": current_user.username or "Unknown",
+        "profile_picture": current_user.profile_picture,
+        "imdb_id": comment.imdb_id,
+        "text": comment.text,
+        "created_at": comment.created_at.isoformat(),
+    }
+
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a comment (only by its author)."""
+    from uuid import UUID as PyUUID
+    try:
+        cid = PyUUID(comment_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid comment ID")
+    deleted = await FilmService.delete_comment(session, cid, current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Comment not found or not yours")
     await session.commit()
     return {"ok": True}

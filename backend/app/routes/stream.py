@@ -129,7 +129,8 @@ async def stream_video(
         ]
 
     cmd += [
-        "-f", "matroska",
+        "-f", "mp4",
+        "-movflags", "frag_keyframe+empty_moov+default_base_moof",
         "pipe:1",
     ]
 
@@ -160,6 +161,6 @@ async def stream_video(
 
     return StreamingResponse(
         iter_ffmpeg(),
-        media_type="video/x-matroska",
+        media_type="video/mp4",
         headers={"Cache-Control": "no-cache"},
     )

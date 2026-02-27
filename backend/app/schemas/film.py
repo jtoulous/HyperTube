@@ -53,3 +53,20 @@ class MarkWatchedRequest(BaseModel):
 class UpdateProgressRequest(BaseModel):
     imdb_id: str
     stopped_at: int
+
+
+class CommentResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    username: str = ""
+    profile_picture: Optional[str] = None
+    imdb_id: str
+    text: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CreateCommentRequest(BaseModel):
+    text: str

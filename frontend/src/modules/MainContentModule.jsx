@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { GlobalState } from "../State";
 import { searchApi } from "../api/search";
 import { downloadsApi } from "../api/downloads";
@@ -6,7 +7,6 @@ import { filmsApi } from "../api/films";
 import MovieCard from "./submodules/MovieCard";
 import BrowseView from "./submodules/BrowseView";
 import SearchResultRow from "./submodules/SearchResultRow";
-import WatchModal from "./submodules/WatchModal";
 
 const BROWSE_GENRES = ["", "Action", "Comedy", "Drama", "Horror", "Thriller", "Sci-Fi", "Animation", "Romance", "Crime", "Adventure", "Documentary", "Family"];
 const BROWSE_PERIODS = [
@@ -24,6 +24,8 @@ const BROWSE_SORTS = [
 
 export default function MainContentModule() {
     const { isLogged, sidebarOpen, setSidebarOpen } = GlobalState();
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const [isMobile, setIsMobile] = useState(
         typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
@@ -36,7 +38,9 @@ export default function MainContentModule() {
         return () => mq.removeEventListener("change", handler);
     }, []);
 
-    const [currentTab, setCurrentTab] = useState("browse");
+    const [currentTab, setCurrentTab] = useState(
+        location.state?.tab || "browse"
+    );
     const [searchQuery, setSearchQuery] = useState("");
 
     const [tmdbResults, setTmdbResults] = useState([]);
@@ -62,11 +66,7 @@ export default function MainContentModule() {
 
     const [watchedImdbIds, setWatchedImdbIds] = useState(new Map());
 
-    /* Player state for watching from library */
-    const [playerFile, setPlayerFile] = useState(null);
-    const [playerTitle, setPlayerTitle] = useState("");
-    const [playerAllFiles, setPlayerAllFiles] = useState([]);
-    const [playerImdbId, setPlayerImdbId] = useState(null);
+
 
     /*  Load watched IDs from API  */
     const loadWatchedIds = useCallback(async () => {
@@ -238,61 +238,11 @@ export default function MainContentModule() {
         }
     }, [loadFilms]);
 
-    const handleMarkWatched = useCallback(async (imdbId) => {
-        if (!isLogged || !imdbId) return;
-        // If the user already has a watched entry, don't reset their progress
-        if (watchedImdbIds.has(imdbId)) return;
-        try {
-            await filmsApi.markWatched(imdbId, 0);
-            setWatchedImdbIds(prev => {
-                const next = new Map(prev);
-                next.set(imdbId, { imdb_id: imdbId, stopped_at: 0, is_completed: false });
-                return next;
-            });
-        } catch (err) {
-            console.error("Failed to mark watched:", err);
-        }
-    }, [isLogged, watchedImdbIds]);
-
-    /** Report playback progress from the player — called periodically and on unmount */
-    const handleTimeReport = useCallback(async (stoppedAt, duration) => {
-        if (!isLogged || !playerImdbId) return;
-        try {
-            const res = await filmsApi.updateProgress(playerImdbId, stoppedAt);
-            const d = res.data;
-            setWatchedImdbIds(prev => {
-                const next = new Map(prev);
-                next.set(playerImdbId, {
-                    imdb_id: playerImdbId,
-                    stopped_at: d.stopped_at ?? stoppedAt,
-                    is_completed: d.is_completed ?? false,
-                });
-                return next;
-            });
-        } catch (err) {
-            console.error("Failed to update progress:", err);
-        }
-    }, [isLogged, playerImdbId]);
-
-    /** Open the file picker for a film from the library */
-    const handleWatchFilm = useCallback(async (movie) => {
+    /** Navigate to the dedicated watch page for a film */
+    const handleWatchFilm = useCallback((movie) => {
         if (!movie?.imdbid) return;
-        try {
-            const res = await filmsApi.getFilmFiles(movie.imdbid);
-            const files = res.data?.files || [];
-            if (files.length === 0) {
-                alert("No playable video files found yet.");
-                return;
-            }
-            setPlayerAllFiles(files);
-            setPlayerFile(null);           // don't auto-play; show picker first
-            setPlayerTitle(movie.title || "");
-            setPlayerImdbId(movie.imdbid); // remember for marking watched later
-        } catch (err) {
-            console.error("Failed to load film files:", err);
-            alert("Could not load video files.");
-        }
-    }, []);
+        navigate(`/watch/${movie.imdbid}`);
+    }, [navigate]);
 
     /*  Computed sidebar style  */
     const sidebarStyle = isMobile
@@ -567,21 +517,7 @@ export default function MainContentModule() {
                 )}
             </div>
 
-            {/* Player / file-picker modal (opened from library) */}
-            {playerAllFiles.length > 0 && (
-                <WatchModal
-                    file={playerFile}
-                    title={playerTitle}
-                    allFiles={playerAllFiles}
-                    onFileChange={(f) => {
-                        setPlayerFile(f);
-                        if (f && playerImdbId) handleMarkWatched(playerImdbId);
-                    }}
-                    onTimeReport={handleTimeReport}
-                    initialTime={playerImdbId ? (watchedImdbIds.get(playerImdbId)?.stopped_at || 0) : 0}
-                    onClose={() => { setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); }}
-                />
-            )}
+
         </div>
     );
 }

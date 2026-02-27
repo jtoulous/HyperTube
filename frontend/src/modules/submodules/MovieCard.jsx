@@ -55,7 +55,7 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
         >
             <div style={styles.poster}>
                 {hasPoster
-                    ? <img src={result.poster} alt={result.title} loading="lazy" style={styles.posterImg} />
+                    ? <img src={result.poster} alt={result.title} loading="lazy" style={{ ...styles.posterImg, ...(isWatched ? styles.posterImgWatched : {}) }} />
                     : <div style={styles.noPoster}><span>🎬</span></div>
                 }
 
@@ -180,6 +180,11 @@ const styles = {
         height: "100%",
         objectFit: "cover",
         display: "block",
+        transition: "filter 0.2s, opacity 0.2s",
+    },
+    posterImgWatched: {
+        filter: "grayscale(0.55) brightness(0.65)",
+        opacity: 0.75,
     },
     noPoster: {
         width: "100%",

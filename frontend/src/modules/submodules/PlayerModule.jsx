@@ -435,7 +435,7 @@ const styles = {
     container: {
         position: "relative",
         width: "100%",
-        maxWidth: "960px",
+        maxWidth: "100%",
         margin: "0 auto",
         aspectRatio: "16 / 9",
         background: "#000",

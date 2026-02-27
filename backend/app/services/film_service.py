@@ -3,7 +3,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from app.models.film import Film, WatchedFilm
+from app.models.film import Film, WatchedFilm, Comment
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -306,6 +307,50 @@ class FilmService:
             delete(WatchedFilm).where(
                 WatchedFilm.user_id == user_id,
                 WatchedFilm.imdb_id == imdb_id,
+            )
+        )
+        return result.rowcount > 0
+
+    # ─── Comments ───────────────────────────────────────────────────
+
+    @staticmethod
+    async def get_comments(session: AsyncSession, imdb_id: str) -> list[dict]:
+        """Return all comments for a film, newest first, with username + avatar."""
+        result = await session.execute(
+            select(Comment, User.username, User.profile_picture)
+            .join(User, Comment.user_id == User.id)
+            .where(Comment.imdb_id == imdb_id)
+            .order_by(Comment.created_at.desc())
+        )
+        return [
+            {
+                "id": str(row[0].id),
+                "user_id": str(row[0].user_id),
+                "username": row[1] or "Unknown",
+                "profile_picture": row[2],
+                "imdb_id": row[0].imdb_id,
+                "text": row[0].text,
+                "created_at": row[0].created_at.isoformat(),
+            }
+            for row in result.all()
+        ]
+
+    @staticmethod
+    async def add_comment(session: AsyncSession, user_id: UUID, imdb_id: str, text: str) -> Comment:
+        """Add a comment on a film."""
+        comment = Comment(user_id=user_id, imdb_id=imdb_id, text=text)
+        session.add(comment)
+        await session.flush()
+        await session.refresh(comment)
+        return comment
+
+    @staticmethod
+    async def delete_comment(session: AsyncSession, comment_id: UUID, user_id: UUID) -> bool:
+        """Delete a comment (only its author can delete)."""
+        result = await session.execute(
+            delete(Comment).where(
+                Comment.id == comment_id,
+                Comment.user_id == user_id,
             )
         )
         return result.rowcount > 0

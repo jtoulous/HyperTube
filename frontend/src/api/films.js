@@ -16,4 +16,9 @@ export const filmsApi = {
         api.put("/films/watched/progress", { imdb_id: imdbId, stopped_at: stoppedAt }),
 
     unmarkWatched: (imdbId) => api.delete(`/films/watched/${imdbId}`),
+
+    /** Comments */
+    getComments: (imdbId) => api.get(`/films/${imdbId}/comments`),
+    addComment: (imdbId, text) => api.post(`/films/${imdbId}/comments`, { text }),
+    deleteComment: (commentId) => api.delete(`/films/comments/${commentId}`),
 };

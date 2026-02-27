@@ -66,3 +66,15 @@ CREATE TABLE IF NOT EXISTS watched_films (
 
 CREATE INDEX IF NOT EXISTS idx_watched_films_user_id ON watched_films(user_id);
 CREATE INDEX IF NOT EXISTS idx_watched_films_imdb_id ON watched_films(imdb_id);
+
+-- Comments on films
+CREATE TABLE IF NOT EXISTS comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    imdb_id VARCHAR(20) NOT NULL,
+    text TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_imdb_id ON comments(imdb_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);

@@ -312,7 +312,28 @@ class TmdbService:
 
         directors = [c["name"] for c in crew_list if c.get("job") == "Director"]
         writers = [c["name"] for c in crew_list if c.get("department") == "Writing"]
+        producers = [c["name"] for c in crew_list if c.get("job") == "Producer"]
         actors = [c["name"] for c in cast_list[:6]]
+
+        # Structured cast with photos (for the detail page)
+        cast_detailed = [
+            {
+                "name": c.get("name"),
+                "character": c.get("character"),
+                "profile_path": self._poster_url(c.get("profile_path")),
+            }
+            for c in cast_list[:12]
+        ]
+
+        crew_detailed = [
+            {
+                "name": c.get("name"),
+                "job": c.get("job"),
+                "profile_path": self._poster_url(c.get("profile_path")),
+            }
+            for c in crew_list
+            if c.get("job") in ("Director", "Producer", "Screenplay", "Writer")
+        ]
 
         # Ratings
         vote_avg = data.get("vote_average")
@@ -324,6 +345,10 @@ class TmdbService:
         prod_countries = data.get("production_countries", [])
         country = ", ".join(c.get("name", "") for c in prod_countries) or None
 
+        # Backdrop image
+        backdrop = data.get("backdrop_path")
+        backdrop_url = f"https://image.tmdb.org/t/p/w1280{backdrop}" if backdrop else None
+
         logger.info(f"TMDB returned: {title} ({year})")
 
         return {
@@ -334,15 +359,20 @@ class TmdbService:
             "rated": None,
             "released": release_date,
             "runtime": runtime,
+            "runtime_minutes": runtime_min,
             "genre": genre_str,
             "director": ", ".join(directors) if directors else None,
             "writer": ", ".join(writers[:3]) if writers else None,
+            "producer": ", ".join(producers[:3]) if producers else None,
             "actors": ", ".join(actors) if actors else None,
+            "cast_detailed": cast_detailed,
+            "crew_detailed": crew_detailed,
             "plot": data.get("overview"),
             "language": language,
             "country": country,
             "awards": None,
             "poster": self._poster_url(data.get("poster_path")),
+            "backdrop": backdrop_url,
             "ratings": [],
             "metascore": None,
             "imdb_rating": imdb_rating,
