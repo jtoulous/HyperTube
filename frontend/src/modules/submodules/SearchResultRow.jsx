@@ -207,9 +207,6 @@ const styles = {
         marginBottom: 4,
         overflow: "hidden",
     },
-    rowExpanded: {
-        borderColor: "#30363d",
-    },
     header: {
         display: "flex",
         alignItems: "center",
