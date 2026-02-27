@@ -148,7 +148,12 @@ export default function WatchPage() {
 
                 <div style={styles.heroContent}>
                     {/* Back button */}
-                    <button style={styles.backBtn} onClick={() => navigate("/", { state: { tab: "library" } })}>
+                    <button
+                        style={styles.backBtn}
+                        onClick={() => navigate("/", { state: { tab: "library" } })}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; e.currentTarget.style.borderColor = "#484f58"; e.currentTarget.style.color = "#e6edf3"; e.currentTarget.style.transform = "translateX(-3px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         ← Back
                     </button>
 
@@ -162,8 +167,8 @@ export default function WatchPage() {
                                     key={f.name}
                                     style={styles.sourceRow}
                                     onClick={() => handleFileSelect(f)}
-                                    onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = "#161b22"; }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#1c2128"; e.currentTarget.style.borderColor = "#388bfd"; e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,123,255,0.08)"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#161b22"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.boxShadow = "none"; }}
                                 >
                                     <span style={{ fontSize: "1.1rem" }}>🎬</span>
                                     <div style={styles.sourceInfo}>
@@ -291,13 +296,15 @@ export default function WatchPage() {
                             onClick={() => setCastExpanded(v => !v)}
                             onMouseEnter={e => {
                                 e.currentTarget.style.color = "#e6edf3";
-                                e.currentTarget.style.borderColor = "#58a6ff";
-                                e.currentTarget.style.background = "rgba(56,139,253,0.08)";
+                                e.currentTarget.style.borderColor = "rgba(56,139,253,0.3)";
+                                e.currentTarget.style.background = "rgba(56,139,253,0.06)";
+                                e.currentTarget.style.transform = "translateX(3px)";
                             }}
                             onMouseLeave={e => {
                                 e.currentTarget.style.color = "#8b949e";
                                 e.currentTarget.style.borderColor = "transparent";
                                 e.currentTarget.style.background = "none";
+                                e.currentTarget.style.transform = "translateX(0)";
                             }}
                         >
                             <span style={{ transition: "transform 0.25s", display: "inline-block", transform: castExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
@@ -318,7 +325,12 @@ export default function WatchPage() {
                                     <h3 style={styles.subSectionTitle}>Cast</h3>
                                     <div style={styles.castGrid}>
                                         {details.cast_detailed.map((person, idx) => (
-                                            <div key={idx} style={styles.castCard}>
+                                            <div
+                                                key={idx}
+                                                style={styles.castCard}
+                                                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(56,139,253,0.2)"; e.currentTarget.style.transform = "translateY(-3px) scale(1.02)"; e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.3)"; e.currentTarget.style.background = "#161b22"; }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#21262d"; e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.background = "#0d1117"; }}
+                                            >
                                                 {person.profile_path ? (
                                                     <img src={person.profile_path} alt={person.name} style={styles.castPhoto} />
                                                 ) : (
@@ -344,7 +356,12 @@ export default function WatchPage() {
                                     <h3 style={styles.subSectionTitle}>Crew</h3>
                                     <div style={styles.castGrid}>
                                         {details.crew_detailed.map((person, idx) => (
-                                            <div key={idx} style={styles.castCard}>
+                                            <div
+                                                key={idx}
+                                                style={styles.castCard}
+                                                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(56,139,253,0.2)"; e.currentTarget.style.transform = "translateY(-3px) scale(1.02)"; e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.3)"; e.currentTarget.style.background = "#161b22"; }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#21262d"; e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.background = "#0d1117"; }}
+                                            >
                                                 {person.profile_path ? (
                                                     <img src={person.profile_path} alt={person.name} style={styles.castPhoto} />
                                                 ) : (
@@ -388,6 +405,8 @@ export default function WatchPage() {
                                     ...(commentSubmitting || !commentText.trim() ? styles.commentBtnDisabled : {}),
                                 }}
                                 disabled={commentSubmitting || !commentText.trim()}
+                                onMouseEnter={e => { if (!e.currentTarget.disabled) { e.currentTarget.style.background = "linear-gradient(135deg, #1a8cff 0%, #0560c7 100%)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,123,255,0.3)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
+                                onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #007BFF 0%, #0969da 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,123,255,0.15)"; e.currentTarget.style.transform = "translateY(0)"; }}
                             >
                                 {commentSubmitting ? "Posting..." : "Post"}
                             </button>
@@ -400,7 +419,12 @@ export default function WatchPage() {
 
                     <div style={styles.commentList}>
                         {comments.map(c => (
-                            <div key={c.id} style={styles.commentItem}>
+                            <div
+                                key={c.id}
+                                style={styles.commentItem}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(56,139,253,0.15)"; e.currentTarget.style.background = "#0d1117ee"; e.currentTarget.style.transform = "translateX(3px)"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = "#21262d"; e.currentTarget.style.background = "#0d1117"; e.currentTarget.style.transform = "translateX(0)"; }}
+                            >
                                 <div style={styles.commentHeader}>
                                     {c.profile_picture ? (
                                         <img src={c.profile_picture} alt="" style={styles.commentAvatar} />
@@ -421,6 +445,8 @@ export default function WatchPage() {
                                             style={styles.commentDeleteBtn}
                                             onClick={() => handleDeleteComment(c.id)}
                                             title="Delete comment"
+                                            onMouseEnter={e => { e.currentTarget.style.color = "#f85149"; e.currentTarget.style.background = "rgba(248,81,73,0.12)"; e.currentTarget.style.transform = "scale(1.15)"; }}
+                                            onMouseLeave={e => { e.currentTarget.style.color = "#484f58"; e.currentTarget.style.background = "none"; e.currentTarget.style.transform = "scale(1)"; }}
                                         >
                                             ✕
                                         </button>
@@ -519,6 +545,7 @@ const styles = {
         padding: "6px 14px",
         borderRadius: 6,
         cursor: "pointer",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
 
     /* Player section */
@@ -546,7 +573,7 @@ const styles = {
         border: "1px solid #30363d",
         borderRadius: 8,
         cursor: "pointer",
-        transition: "background 0.15s",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
         textAlign: "left",
         color: "#c9d1d9",
         fontFamily: "'Inter', sans-serif",
@@ -590,6 +617,7 @@ const styles = {
         cursor: "pointer",
         maxWidth: 360,
         outline: "none",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
 
     /* Info section */
@@ -706,14 +734,14 @@ const styles = {
         padding: "10px 16px",
         cursor: "pointer",
         textAlign: "left",
-        transition: "color 0.2s, border-color 0.2s, background 0.2s",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
         display: "flex",
         alignItems: "center",
         gap: 6,
     },
     expandContent: {
         overflow: "hidden",
-        transition: "max-height 0.4s ease, opacity 0.3s ease",
+        transition: "max-height 0.5s cubic-bezier(0.25, 1, 0.3, 1), opacity 0.4s ease",
         display: "flex",
         flexDirection: "column",
         gap: 20,
@@ -751,6 +779,7 @@ const styles = {
         background: "#0d1117",
         borderRadius: 8,
         border: "1px solid #21262d",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     castPhoto: {
         width: 72,
@@ -814,10 +843,11 @@ const styles = {
         minHeight: 50,
         maxHeight: 200,
         boxSizing: "border-box",
+        transition: "border-color 0.35s cubic-bezier(0.25,1,0.3,1), box-shadow 0.35s cubic-bezier(0.25,1,0.3,1)",
     },
     commentBtn: {
         alignSelf: "flex-end",
-        background: "#007BFF",
+        background: "linear-gradient(135deg, #007BFF 0%, #0969da 100%)",
         color: "#fff",
         border: "none",
         borderRadius: 6,
@@ -826,6 +856,8 @@ const styles = {
         fontWeight: 600,
         fontFamily: "'Inter', sans-serif",
         cursor: "pointer",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
+        boxShadow: "0 2px 8px rgba(0, 123, 255, 0.15)",
     },
     commentBtnDisabled: {
         opacity: 0.5,
@@ -849,6 +881,7 @@ const styles = {
         display: "flex",
         flexDirection: "column",
         gap: 6,
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     commentHeader: {
         display: "flex",
@@ -892,6 +925,7 @@ const styles = {
         padding: "2px 6px",
         borderRadius: 4,
         marginLeft: 4,
+        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     commentText: {
         fontSize: "0.85rem",

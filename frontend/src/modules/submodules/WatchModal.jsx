@@ -22,12 +22,20 @@ export default function WatchModal({ file, title, allFiles, onFileChange, onClos
                             style={styles.backBtn}
                             onClick={() => onFileChange(null)}
                             title="Back to sources"
+                            onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; e.currentTarget.style.transform = "translateX(-2px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.boxShadow = "none"; }}
                         >
                             ←
                         </button>
                     )}
                     <span style={styles.title}>{title}</span>
-                    <button style={styles.closeBtn} onClick={onClose} title="Close (Esc)">✕</button>
+                    <button
+                        style={styles.closeBtn}
+                        onClick={onClose}
+                        title="Close (Esc)"
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(248,81,73,0.15)"; e.currentTarget.style.color = "#f85149"; e.currentTarget.style.borderColor = "rgba(248,81,73,0.3)"; e.currentTarget.style.transform = "scale(1.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.transform = "scale(1)"; }}
+                    >✕</button>
                 </div>
 
                 {/* ─── Source picker ─── */}
@@ -40,8 +48,8 @@ export default function WatchModal({ file, title, allFiles, onFileChange, onClos
                                     key={f.name}
                                     style={styles.fileRow}
                                     onClick={() => onFileChange(f)}
-                                    onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = "#161b22"; }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#30363d"; e.currentTarget.style.borderColor = "rgba(0,123,255,0.3)"; e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.2)"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#161b22"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.transform = "translateX(0)"; e.currentTarget.style.boxShadow = "none"; }}
                                 >
                                     <span style={styles.fileIcon}>🎬</span>
                                     <div style={styles.fileInfo}>
@@ -121,6 +129,7 @@ const styles = {
         fontSize: "1rem",
         cursor: "pointer",
         flexShrink: 0,
+        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     title: {
         flex: 1,
@@ -145,6 +154,7 @@ const styles = {
         fontSize: "0.9rem",
         cursor: "pointer",
         flexShrink: 0,
+        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
 
     /* Source picker */
@@ -172,7 +182,7 @@ const styles = {
         border: "1px solid #30363d",
         borderRadius: 8,
         cursor: "pointer",
-        transition: "background 0.15s",
+        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
         textAlign: "left",
         color: "#c9d1d9",
         fontFamily: "'Inter', sans-serif",

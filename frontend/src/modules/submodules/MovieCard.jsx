@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 function formatEta(seconds) {
     if (!seconds || seconds <= 0) return "";
@@ -12,6 +12,7 @@ function formatEta(seconds) {
 export default function MovieCard({ result, isWatched, watchProgress, onDownload, isLogged, onCardClick, libraryMode, filmStatus }) {
     const [downloading, setDownloading] = useState(false);
     const [added, setAdded] = useState(false);
+    const cardRef = useRef(null);
 
     // Film is already on the server (downloaded or in progress)
     const alreadyOnServer = !!filmStatus;
@@ -46,12 +47,34 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
 
     return (
         <div
+            ref={cardRef}
             style={{
                 ...styles.card,
                 ...(isWatched ? styles.cardSeen : {}),
                 ...(onCardClick ? styles.cardClickable : {}),
             }}
             onClick={onCardClick ? () => onCardClick(result.title, result.tmdb_id) : undefined}
+            onMouseEnter={() => {
+                const el = cardRef.current;
+                if (!el) return;
+                el.style.transform = "translateY(-6px) scale(1.03)";
+                el.style.boxShadow = isWatched
+                    ? "0 12px 32px rgba(63,185,80,0.15), 0 0 0 1px rgba(63,185,80,0.3)"
+                    : "0 12px 32px rgba(0,123,255,0.12), 0 0 0 1px rgba(0,123,255,0.15)";
+                el.style.borderColor = isWatched ? "rgba(63,185,80,0.5)" : "rgba(0,123,255,0.35)";
+                // zoom the poster image
+                const img = el.querySelector('img[loading="lazy"]');
+                if (img) img.style.transform = "scale(1.08)";
+            }}
+            onMouseLeave={() => {
+                const el = cardRef.current;
+                if (!el) return;
+                el.style.transform = "translateY(0) scale(1)";
+                el.style.boxShadow = "none";
+                el.style.borderColor = isWatched ? "rgba(63,185,80,0.25)" : "#21262d";
+                const img = el.querySelector('img[loading="lazy"]');
+                if (img) img.style.transform = "scale(1)";
+            }}
         >
             <div style={styles.poster}>
                 {hasPoster
@@ -133,6 +156,8 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
                         }}
                         onClick={handleDownload}
                         disabled={downloading || added || alreadyOnServer}
+                        onMouseEnter={e => { if (!downloading && !added && !alreadyOnServer) { e.currentTarget.style.background = "linear-gradient(135deg, #007BFF 0%, #0969da 100%)"; e.currentTarget.style.borderColor = "#007BFF"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,123,255,0.25)"; } }}
+                        onMouseLeave={e => { if (!downloading && !added && !alreadyOnServer) { e.currentTarget.style.background = "#21262d"; e.currentTarget.style.borderColor = "#30363d"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.boxShadow = "none"; } }}
                     >
                         {downloading
                             ? <span style={styles.dlSpinner} />
@@ -154,9 +179,9 @@ const styles = {
         borderWidth: 1,
         borderStyle: "solid",
         borderColor: "#21262d",
-        borderRadius: 8,
+        borderRadius: 10,
         overflow: "hidden",
-        transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+        transition: "all 0.4s cubic-bezier(0.25, 1, 0.3, 1)",
         cursor: "default",
         display: "flex",
         flexDirection: "column",
@@ -180,7 +205,7 @@ const styles = {
         height: "100%",
         objectFit: "cover",
         display: "block",
-        transition: "filter 0.2s, opacity 0.2s",
+        transition: "transform 0.5s cubic-bezier(0.25, 1, 0.3, 1), filter 0.4s ease, opacity 0.4s ease",
     },
     posterImgWatched: {
         filter: "grayscale(0.55) brightness(0.65)",
@@ -393,6 +418,7 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         gap: 5,
+        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     dlBtnDone: {
         background: "rgba(63, 185, 80, 0.1)",

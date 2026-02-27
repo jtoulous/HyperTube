@@ -35,24 +35,40 @@ export default function TopBarModule() {
 
     return (
         <div className="top-bar" style={styles.topBar}>
-            <div style={styles.iconWrapper}>
-                <Icon path={mdiMenu} size={1.5} onClick={() => setSidebarOpen(!sidebarOpen)} />
+            <div
+                style={styles.iconWrapper}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,148,158,0.12)"; e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = "0 0 12px rgba(139,148,158,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
+            >
+                <Icon path={mdiMenu} size={1.3} onClick={() => setSidebarOpen(!sidebarOpen)} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 {isLogged ? (
                     <>
-                        <div style={styles.iconWrapper}>
-                            <Icon path={mdiAccount} size={1.5} onClick={handleProfileModule} />
+                        <div
+                            style={styles.iconWrapper}
+                            onMouseEnter={e => { e.currentTarget.style.background = "rgba(88,166,255,0.1)"; e.currentTarget.style.color = "#58a6ff"; e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = "0 0 12px rgba(88,166,255,0.1)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
+                        >
+                            <Icon path={mdiAccount} size={1.3} onClick={handleProfileModule} />
                         </div>
                         <ProfileModule isOpen={profileModuleVisible} onClose={() => setProfileModuleVisible(false)} targetUsername={username} />
-                        <div style={styles.iconWrapper}>
-                            <Icon path={mdiLogout} onClick={logout} size={1.5} />
+                        <div
+                            style={styles.iconWrapper}
+                            onMouseEnter={e => { e.currentTarget.style.background = "rgba(248,81,73,0.1)"; e.currentTarget.style.color = "#f85149"; e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = "0 0 12px rgba(248,81,73,0.1)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
+                        >
+                            <Icon path={mdiLogout} onClick={logout} size={1.3} />
                         </div>
                     </>
                 ) : (
-                    <div style={styles.iconWrapper}>
+                    <div
+                        style={styles.iconWrapper}
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(63,185,80,0.1)"; e.currentTarget.style.color = "#3fb950"; e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = "0 0 12px rgba(63,185,80,0.1)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#c9d1d9"; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         <div style={styles.authWrapper} ref={authWrapperRef}>
-                            <Icon path={mdiLogin} onClick={handleAuthModule} size={1.5} />
+                            <Icon path={mdiLogin} onClick={handleAuthModule} size={1.3} />
                             {authModuleVisible && <AuthModule />}
                         </div>
                     </div>
@@ -67,15 +83,21 @@ const styles = {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "1rem",
+        padding: "0 1rem",
         background: "#0d1117",
-        color: "#fff",
+        color: "#c9d1d9",
         fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        height: "60px",
+        height: "56px",
         borderBottom: "1px solid #21262d",
     },
     iconWrapper: {
         cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "8px",
+        borderRadius: 8,
+        transition: "all 0.3s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     authWrapper: {
         position: "relative",

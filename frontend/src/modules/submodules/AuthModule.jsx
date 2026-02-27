@@ -109,6 +109,8 @@ export default function AuthModule() {
                             ...(currentView === tab.key ? styles.tabActive : {}),
                         }}
                         onClick={() => { setCurrentView(tab.key); clearMessages(); }}
+                        onMouseEnter={e => { if (currentView !== tab.key) { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderBottomColor = "rgba(0,123,255,0.3)"; } }}
+                        onMouseLeave={e => { if (currentView !== tab.key) { e.currentTarget.style.color = "#888"; e.currentTarget.style.borderBottomColor = "transparent"; } }}
                     >
                         {tab.label}
                     </button>
@@ -122,7 +124,10 @@ export default function AuthModule() {
                 <form style={styles.form} onSubmit={handleLogin}>
                     <input style={styles.input} type="email" placeholder="Email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required />
                     <input style={styles.input} type="password" placeholder="Password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
-                    <button style={styles.submitButton} type="submit">Login</button>
+                    <button style={styles.submitButton} type="submit"
+                        onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, #1a8cff 0%, #0560c7 100%)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,123,255,0.35)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #007BFF 0%, #0969da 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,123,255,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                    >Login</button>
 
                     <div style={styles.divider}>
                         <span style={styles.dividerLine} />
@@ -130,13 +135,22 @@ export default function AuthModule() {
                         <span style={styles.dividerLine} />
                     </div>
 
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauth42()}>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauth42()}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#eaeaea"; e.currentTarget.style.borderColor = "#bbb"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#f5f5f5"; e.currentTarget.style.borderColor = "#d0d0d0"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         Continue with 42
                     </button>
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#eaeaea"; e.currentTarget.style.borderColor = "#bbb"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#f5f5f5"; e.currentTarget.style.borderColor = "#d0d0d0"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         Continue with GitHub
                     </button>
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthDiscord()}>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthDiscord()}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#eaeaea"; e.currentTarget.style.borderColor = "#bbb"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#f5f5f5"; e.currentTarget.style.borderColor = "#d0d0d0"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         Continue with Discord
                     </button>
                 </form>
@@ -150,7 +164,10 @@ export default function AuthModule() {
                     <input style={styles.input} type="email" placeholder="Email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} required />
                     <input style={styles.input} type="password" placeholder="Password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} required />
                     <input style={styles.input} type="password" placeholder="Confirm password" value={regConfirm} onChange={(e) => setRegConfirm(e.target.value)} required />
-                    <button style={styles.submitButton} type="submit">Register</button>
+                    <button style={styles.submitButton} type="submit"
+                        onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, #1a8cff 0%, #0560c7 100%)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,123,255,0.35)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #007BFF 0%, #0969da 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,123,255,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                    >Register</button>
 
                     <div style={styles.divider}>
                         <span style={styles.dividerLine} />
@@ -158,13 +175,22 @@ export default function AuthModule() {
                         <span style={styles.dividerLine} />
                     </div>
 
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauth42()}>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauth42()}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#eaeaea"; e.currentTarget.style.borderColor = "#bbb"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#f5f5f5"; e.currentTarget.style.borderColor = "#d0d0d0"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         Continue with 42
                     </button>
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthGithub()}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#eaeaea"; e.currentTarget.style.borderColor = "#bbb"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#f5f5f5"; e.currentTarget.style.borderColor = "#d0d0d0"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         Continue with GitHub
                     </button>
-                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthDiscord()}>
+                    <button style={styles.oauthButton} type="button" onClick={() => authApi.oauthDiscord()}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#eaeaea"; e.currentTarget.style.borderColor = "#bbb"; e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#f5f5f5"; e.currentTarget.style.borderColor = "#d0d0d0"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                    >
                         Continue with Discord
                     </button>
                 </form>
@@ -176,7 +202,10 @@ export default function AuthModule() {
                         Enter your email to receive a reset link.
                     </p>
                     <input style={styles.input} type="email" placeholder="Email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} required />
-                    <button style={styles.submitButton} type="submit">Send reset link</button>
+                    <button style={styles.submitButton} type="submit"
+                        onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, #1a8cff 0%, #0560c7 100%)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,123,255,0.35)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, #007BFF 0%, #0969da 100%)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,123,255,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                    >Send reset link</button>
                 </form>
             )}
         </div>
@@ -192,10 +221,11 @@ const styles = {
         padding: "1.25rem",
         background: "#fff",
         color: "#333",
-        borderRadius: "10px",
-        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
+        borderRadius: "12px",
+        boxShadow: "0 12px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0,0,0,0.05)",
         zIndex: 100,
         fontFamily: "'Inter', sans-serif",
+        animation: "fadeSlideIn 0.25s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     tabBar: {
         display: "flex",
@@ -217,6 +247,7 @@ const styles = {
         fontFamily: "'Inter', sans-serif",
         WebkitAppearance: "none",
         outline: "none",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     tabActive: {
         color: "#007BFF",
@@ -235,17 +266,20 @@ const styles = {
         fontSize: "0.9rem",
         fontFamily: "'Inter', sans-serif",
         outline: "none",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     submitButton: {
         padding: "0.6rem",
         borderRadius: "6px",
-        background: "#007BFF",
+        background: "linear-gradient(135deg, #007BFF 0%, #0969da 100%)",
         color: "#fff",
         border: "none",
         cursor: "pointer",
         fontSize: "0.9rem",
         fontWeight: 600,
         fontFamily: "'Inter', sans-serif",
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
+        boxShadow: "0 2px 8px rgba(0, 123, 255, 0.2)",
     },
     divider: {
         display: "flex",
@@ -272,6 +306,7 @@ const styles = {
         fontSize: "0.85rem",
         fontFamily: "'Inter', sans-serif",
         fontWeight: 500,
+        transition: "all 0.35s cubic-bezier(0.25, 1, 0.3, 1)",
     },
     error: {
         fontSize: "0.8rem",
