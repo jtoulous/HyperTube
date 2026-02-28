@@ -98,7 +98,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     const seekRef       = useRef(null);
     const hideTimerRef  = useRef(null);
     const wasPlayingRef = useRef(false); // remember play state across stream reloads
-    const initialTimeApplied = useRef(false);
 
     // Inject keyframe animation for the spinner once
     useEffect(() => {
@@ -157,7 +156,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
 
     // Fetch file info (duration + audio tracks), then resume from initialTime if set
     useEffect(() => {
-        initialTimeApplied.current = false;
         setAudioTrack(0);
         setResolution("original");
         setActiveSubtitle(-1);
@@ -269,6 +267,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     // Keyboard shortcuts
     useEffect(() => {
         const onKey = (e) => {
+            const tag = document.activeElement?.tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
             const video = videoRef.current;
             if (!video) return;
             switch (e.key) {
@@ -548,7 +548,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         const video = videoRef.current;
         wasPlayingRef.current = !!(video && !video.paused);
         const currentAbsTime = timeOffset + (video?.currentTime || 0);
-        const seekTarget = time ?? currentAbsTime;
+        // Use startParam as fallback when video hasn't started playing yet
+        const seekTarget = time ?? (currentAbsTime > 0 ? currentAbsTime : startParam);
         const effectiveRes = res !== undefined ? res : resolution;
 
         // Determine actual keyframe offset for copy mode
@@ -567,7 +568,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         setStartParam(seekTarget);
         if (res   !== undefined) setResolution(res);
         if (track !== undefined) setAudioTrack(track);
-    }, [timeOffset, filename, resolution]);
+    }, [timeOffset, startParam, filename, resolution]);
 
     // Seek to an absolute timestamp (seconds) by reloading the stream
     const seekToAbsolute = useCallback((absoluteSec) => {

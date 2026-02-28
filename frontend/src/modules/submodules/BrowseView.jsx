@@ -83,7 +83,7 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
             <div style={styles.movieGrid}>
                 {results.map((result, idx) => (
                     <MovieCard
-                        key={result.tmdb_id || result.imdbid || idx}
+                        key={`${result.tmdb_id || result.imdbid || 'r'}-${idx}`}
                         result={result}
                         isWatched={!!(result.imdbid && watchedImdbIds.get(result.imdbid)?.is_completed)}
                         watchProgress={result.imdbid ? watchedImdbIds.get(result.imdbid) : undefined}

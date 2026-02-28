@@ -24,6 +24,7 @@ export default function WatchPage() {
 
     /* ─── Watched state ─── */
     const [watchedInfo, setWatchedInfo] = useState(null);
+    const [watchedLoaded, setWatchedLoaded] = useState(false);
 
     /* ─── Comments ─── */
     const [comments, setComments] = useState([]);
@@ -62,13 +63,14 @@ export default function WatchPage() {
 
     /* Fetch watched info */
     useEffect(() => {
-        if (!isLogged || !imdbId) return;
+        if (!isLogged || !imdbId) { setWatchedLoaded(true); return; }
         filmsApi.getWatchedIds()
             .then(res => {
                 const found = (res.data || []).find(w => w.imdb_id === imdbId);
                 setWatchedInfo(found || null);
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => setWatchedLoaded(true));
     }, [isLogged, imdbId]);
 
     /* Fetch comments */
@@ -182,7 +184,7 @@ export default function WatchPage() {
                         </div>
                     )}
 
-                    {selectedFile && (
+                    {selectedFile && watchedLoaded && (
                         <>
                             {files.length > 1 && (
                                 <select
