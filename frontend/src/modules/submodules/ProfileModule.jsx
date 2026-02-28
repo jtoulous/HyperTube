@@ -10,7 +10,7 @@ const LANGUAGES = [
 ];
 
 export default function ProfileModule({ isOpen, onClose, targetUsername }) {
-    const { username: loggedUsername, setUsername: setGlobalUsername } = GlobalState();
+    const { username: loggedUsername, setUsername: setGlobalUsername, setLanguage: setGlobalLanguage } = GlobalState();
     const [profile, setProfile] = useState(null);
     const [isSelf, setIsSelf] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -118,6 +118,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
             const res = await usersApi.updateProfile(payload);
             setProfile({ ...profile, ...res.data });
             if (payload.username) setGlobalUsername(payload.username);
+            if (payload.language) setGlobalLanguage(payload.language);
             setSuccess("Profile updated");
         } catch (err) {
             const detail = err.response?.data?.detail;

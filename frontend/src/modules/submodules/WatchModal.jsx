@@ -86,6 +86,7 @@ function TorrentRow({ torrent, onPause, onResume, onDelete, onRecheck, onReannou
 export default function WatchModal({
     file, title, allFiles, onFileChange, onClose, onTimeReport, initialTime = 0,
     torrents = [], onPause, onResume, onDelete, onRecheck, onReannounce, onRefresh,
+    imdbId, userLang,
 }) {
     useEffect(() => {
         const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -219,7 +220,7 @@ export default function WatchModal({
                                 ))}
                             </select>
                         )}
-                        <PlayerModule filename={file.name} onTimeReport={onTimeReport} initialTime={initialTime} />
+                        <PlayerModule filename={file.name} imdbId={imdbId} onTimeReport={onTimeReport} initialTime={initialTime} userLang={userLang} />
                     </>
                 )}
             </div>

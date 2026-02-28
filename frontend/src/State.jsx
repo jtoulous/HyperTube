@@ -6,6 +6,7 @@ const StateContext = createContext();
 export function State({ children }) {
     const [token, setTokenState] = useState(() => localStorage.getItem('token'))
     const [username, setUsername] = useState("");
+    const [language, setLanguage] = useState("en");
 
     const [availableContentList, setAvailableContentList] = useState([])
     const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
@@ -91,6 +92,7 @@ export function State({ children }) {
         api.get('/users/me')
             .then((res) => {
                 setUsername(res.data.username);
+                if (res.data.language) setLanguage(res.data.language);
             })
             .catch(() => {
                 // Token is invalid/expired — logout
@@ -117,6 +119,7 @@ export function State({ children }) {
             token, setToken,
             logout,
             username, setUsername,
+            language, setLanguage,
             sidebarOpen, setSidebarOpen
         }}>
             {children}

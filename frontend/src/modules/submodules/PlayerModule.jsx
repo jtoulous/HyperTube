@@ -42,6 +42,37 @@ function langName(code) {
     return LANG_NAMES[code.toLowerCase()] || code.charAt(0).toUpperCase() + code.slice(1);
 }
 
+// Mapping from ISO 639-1 (2-letter) to all ISO 639-2/B (3-letter) variants
+const LANG_2_TO_3 = {
+    en: ["eng"], fr: ["fre", "fra"], es: ["spa"], de: ["ger", "deu"],
+    pt: ["por"], it: ["ita"], ja: ["jpn"], ko: ["kor"], zh: ["zho", "chi"],
+    ar: ["ara"], ru: ["rus"], nl: ["dut", "nld"], pl: ["pol"], sv: ["swe"],
+    da: ["dan"], fi: ["fin"], no: ["nor", "nob"], tr: ["tur"], el: ["gre", "ell"],
+    he: ["heb"], hu: ["hun"], cs: ["cze", "ces"], ro: ["rum", "ron"], th: ["tha"],
+    vi: ["vie"], id: ["ind"], ms: ["may", "msa"], hi: ["hin"], bn: ["ben"],
+    uk: ["ukr"], bg: ["bul"], hr: ["hrv"], sk: ["slk", "slo"], sl: ["slv"],
+    sr: ["srp"], lt: ["lit"], lv: ["lav"], et: ["est"], ca: ["cat"], gl: ["glg"],
+    eu: ["baq", "eus"], fa: ["per", "fas"], ur: ["urd"], ta: ["tam"], te: ["tel"],
+};
+
+// Build reverse map: 3-letter → 2-letter
+const LANG_3_TO_2 = {};
+for (const [code2, codes3] of Object.entries(LANG_2_TO_3)) {
+    for (const c3 of codes3) LANG_3_TO_2[c3] = code2;
+}
+
+/** Check if a track's language tag matches a user preference (2- or 3-letter) */
+function langMatches(trackLang, userLang) {
+    if (!trackLang || !userLang) return false;
+    const tl = trackLang.toLowerCase();
+    const ul = userLang.toLowerCase();
+    if (tl === ul) return true;
+    // Normalise both to 2-letter and compare
+    const tl2 = LANG_3_TO_2[tl] || tl;
+    const ul2 = LANG_3_TO_2[ul] || ul;
+    return tl2 === ul2;
+}
+
 function formatTime(sec) {
     if (!sec || isNaN(sec) || !isFinite(sec)) return "0:00";
     const h = Math.floor(sec / 3600);
@@ -61,7 +92,7 @@ function buildUrl(filename, resolution, audioTrack, start) {
     return `/api/v1/stream/${filename}?${p}`;
 }
 
-export default function PlayerModule({ filename, imdbId, onTimeReport, initialTime = 0 }) {
+export default function PlayerModule({ filename, imdbId, onTimeReport, initialTime = 0, userLang }) {
     const videoRef      = useRef(null);
     const containerRef  = useRef(null);
     const seekRef       = useRef(null);
@@ -114,6 +145,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     const [activeCueText,     setActiveCueText]     = useState("");   // current subtitle text to render
     const [parsedCues,        setParsedCues]        = useState([]);   // array of arrays of {start, end, text}
     const vttCacheRef  = useRef(new Map());  // src → raw VTT text
+    const [infoLoaded,        setInfoLoaded]        = useState(false);
+    const autoSubRanRef = useRef(false);  // auto-subtitle selection ran
 
     // Derived absolute time: timeOffset = actual keyframe time, currentTime = relative from there
     const absTime = timeOffset + currentTime;
@@ -133,6 +166,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         setOnlineSearchDone(false);
         vttCacheRef.current.clear();
         setParsedCues([]);
+        setInfoLoaded(false);
+        autoSubRanRef.current = false;
 
         const resumeTime = initialTime || 0;
         setStartParam(resumeTime);
@@ -154,12 +189,13 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                 setTotalDuration(data.duration || 0);
                 setAudioTracks(data.audio_tracks || []);
                 setSubtitleTracks(data.subtitle_tracks || []);
-                console.log("[SUB] /info subtitle_tracks:", JSON.stringify(data.subtitle_tracks));
+                setInfoLoaded(true);
             })
             .catch(() => {
                 setTotalDuration(0);
                 setAudioTracks([]);
                 setSubtitleTracks([]);
+                setInfoLoaded(true);
             });
     }, [filename]);
 
@@ -297,7 +333,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                 label: os.name, language: os.language || "", src: os.url,
             })),
         ];
-        console.log("[SUB] allSubtitles:", list.map(s => ({ label: s.label, src: s.src })));
         return list;
     }, [subtitleTracks, onlineSubtitles, filename]);
 
@@ -346,23 +381,18 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                 if (!raw) {
                     try {
                         const resp = await fetch(sub.src);
-                        console.log(`[SUB] fetch ${sub.src} → status=${resp.status}`);
                         raw = await resp.text();
-                        console.log(`[SUB] VTT raw (first 300): ${raw.slice(0, 300)}`);
                         vttCacheRef.current.set(sub.src, raw);
                     } catch (e) {
-                        console.error(`[SUB] fetch error for ${sub.src}:`, e);
                         allCues.push([]);
                         continue;
                     }
                 }
                 if (cancelled) return;
                 const cues = parseVtt(raw);
-                console.log(`[SUB] parsed ${sub.label}: ${cues.length} cues`, cues.length > 0 ? `first=${JSON.stringify(cues[0])}` : "(empty)");
                 allCues.push(cues);
             }
             if (!cancelled) {
-                console.log(`[SUB] setParsedCues: ${allCues.length} tracks, cue counts: [${allCues.map(c=>c.length).join(", ")}]`);
                 setParsedCues(allCues);
             }
         })();
@@ -379,21 +409,13 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         const cues = parsedCues[activeSubtitle];
         if (!cues || cues.length === 0) { setActiveCueText(""); return; }
 
-        console.log(`[SUB] Renderer active: trackIdx=${activeSubtitle}, cues=${cues.length}`);
-        let logCount = 0;
-
         let rafId;
         const update = () => {
             const t = absTimeRef.current;
-            // Find active cues at time t (binary-ish scan, typically just 1-2 active)
             const active = [];
             for (const c of cues) {
-                if (c.start > t + 1) break; // cues sorted by start, stop early
+                if (c.start > t + 1) break;
                 if (t >= c.start && t < c.end) active.push(c.text);
-            }
-            if (logCount < 5 && t > 0) {
-                console.log(`[SUB] RAF t=${t.toFixed(2)} active=${active.length} firstCue=[${cues[0].start.toFixed(1)}-${cues[0].end.toFixed(1)}]`);
-                logCount++;
             }
             setActiveCueText(active.join("\n"));
             rafId = requestAnimationFrame(update);
@@ -401,6 +423,58 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         rafId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(rafId);
     }, [activeSubtitle, parsedCues]);
+
+    useEffect(() => {
+        if (!infoLoaded || !userLang || autoSubRanRef.current) return;
+        autoSubRanRef.current = true;
+
+        const userAudioIdx = audioTracks.findIndex(t => langMatches(t.language, userLang));
+        if (userAudioIdx >= 0) {
+            if (userAudioIdx !== audioTrack) reloadStream({ track: userAudioIdx });
+            return;
+        }
+
+        (async () => {
+            const userEmbedIdx = subtitleTracks.findIndex(t => langMatches(t.language, userLang));
+            if (userEmbedIdx >= 0) { setActiveSubtitle(userEmbedIdx); return; }
+
+            const engEmbedIdx = subtitleTracks.findIndex(t => langMatches(t.language, "en"));
+
+            if (imdbId) {
+                try {
+                    const searchLangs = langMatches(userLang, "en") ? "en" : `${userLang},en`;
+                    const resp = await fetch(
+                        `/api/v1/stream/online-subtitles/search?imdb_id=${encodeURIComponent(imdbId)}&languages=${searchLangs}`
+                    );
+                    const data = await resp.json();
+                    const results = data.results || [];
+                    setOnlineResults(results);
+                    setOnlineSearchDone(true);
+
+                    const userResult = results.find(r => langMatches(r.language, userLang));
+                    const engResult = !userResult ? results.find(r => langMatches(r.language, "en")) : null;
+                    const target = userResult || engResult;
+
+                    if (target) {
+                        const dlResp = await fetch(
+                            `/api/v1/stream/online-subtitles/download?url=${encodeURIComponent(target.url)}`
+                        );
+                        if (dlResp.ok) {
+                            const blob = await dlResp.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+                            const name = `${langName(target.language)} — ${target.release || target.file_name}`.slice(0, 60);
+                            const newIdx = subtitleTracks.length;
+                            setOnlineSubtitles(prev => [...prev, { name, language: target.language, url: blobUrl, dlUrl: target.url }]);
+                            setActiveSubtitle(newIdx);
+                            return;
+                        }
+                    }
+                } catch {}
+            }
+
+            if (engEmbedIdx >= 0) { setActiveSubtitle(engEmbedIdx); return; }
+        })();
+    }, [infoLoaded, userLang, imdbId, subtitleTracks, audioTracks, audioTrack]);
 
     // Search for online subtitles (Subdl)
     const searchOnlineSubtitles = useCallback(async () => {

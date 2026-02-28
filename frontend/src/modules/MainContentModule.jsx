@@ -25,7 +25,7 @@ const BROWSE_SORTS = [
 ];
 
 export default function MainContentModule() {
-    const { isLogged, sidebarOpen, setSidebarOpen } = GlobalState();
+    const { isLogged, sidebarOpen, setSidebarOpen, language } = GlobalState();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -662,6 +662,8 @@ export default function MainContentModule() {
                     allFiles={playerAllFiles}
                     torrents={playerTorrents}
                     movie={playerMovie}
+                    imdbId={playerImdbId}
+                    userLang={language}
                     onFileChange={(f) => {
                         setPlayerFile(f);
                         if (f && playerImdbId) handleMarkWatched(playerImdbId);

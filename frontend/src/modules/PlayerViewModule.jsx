@@ -15,7 +15,7 @@ export default function PlayerViewModule({
     initialTime,
     onBack,
 }) {
-    const { isLogged, username } = GlobalState();
+    const { isLogged, username, language } = GlobalState();
 
     /* ─── TMDB movie details ─── */
     const [details, setDetails] = useState(null);
@@ -104,6 +104,7 @@ export default function PlayerViewModule({
                                     imdbId={imdbId}
                                     onTimeReport={onTimeReport}
                                     initialTime={initialTime}
+                                    userLang={language}
                                 />
                             </>
                         )}

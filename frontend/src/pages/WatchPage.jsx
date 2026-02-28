@@ -11,7 +11,7 @@ import FooterBarModule from "../modules/FooterBarModule";
 export default function WatchPage() {
     const { imdbId } = useParams();
     const navigate = useNavigate();
-    const { isLogged, username } = GlobalState();
+    const { isLogged, username, language } = GlobalState();
 
     /* ─── Movie details from TMDB ─── */
     const [details, setDetails] = useState(null);
@@ -202,8 +202,10 @@ export default function WatchPage() {
                             )}
                             <PlayerModule
                                 filename={selectedFile.name}
+                                imdbId={imdbId}
                                 onTimeReport={handleTimeReport}
                                 initialTime={initialTime}
+                                userLang={language}
                             />
                         </>
                     )}

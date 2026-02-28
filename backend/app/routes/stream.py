@@ -92,9 +92,7 @@ async def get_file_info(filename: str):
             audio_index += 1
         elif codec_type == "subtitle":
             codec_name = stream.get("codec_name", "").lower()
-            logger.info(f"[SUB] stream #{stream.get('index')} codec={codec_name} lang={tags.get('language','?')} title={tags.get('title','?')} sub_idx={subtitle_index}")
             if codec_name not in TEXT_SUBTITLE_CODECS:
-                logger.info(f"[SUB] SKIPPED stream #{stream.get('index')} – codec '{codec_name}' not in TEXT_SUBTITLE_CODECS")
                 subtitle_index += 1
                 continue  # skip image-based subtitles (PGS, VOBSUB, etc.)
             label = tags.get("title") or tags.get("language") or f"Track {subtitle_index}"
@@ -104,10 +102,7 @@ async def get_file_info(filename: str):
                 "title":    label,
                 "codec":    codec_name,
             })
-            logger.info(f"[SUB] INCLUDED sub_idx={subtitle_index} codec={codec_name} label={label}")
             subtitle_index += 1
-
-    logger.info(f"[SUB] Final subtitle_tracks: {subtitle_tracks}")
 
     return JSONResponse({
         "duration": duration,
@@ -144,16 +139,11 @@ async def get_subtitles(
     )
     stdout, stderr = await process.communicate()
 
-    logger.info(f"[SUB-EXTRACT] returncode={process.returncode} stdout_len={len(stdout)} stderr={stderr.decode()[:500]}")
-
     if process.returncode != 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Could not extract subtitle track {track}: {stderr.decode()[:200]}",
         )
-
-    # Log first 300 chars of VTT output for debugging
-    logger.info(f"[SUB-EXTRACT] VTT preview: {stdout.decode('utf-8', errors='replace')[:300]}")
 
     return Response(content=stdout, media_type="text/vtt")
 

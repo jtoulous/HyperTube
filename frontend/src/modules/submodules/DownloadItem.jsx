@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { downloadsApi } from "../../api/downloads";
+import { GlobalState } from "../../State";
 import WatchModal from "./WatchModal";
 import { formatSize } from "./utils";
 
@@ -28,6 +29,7 @@ const PCT_COLORS = {
 };
 
 export default function DownloadItem({ download, onMarkWatched }) {
+    const { language } = GlobalState();
     const [progress, setProgress] = useState(null);
     const pollingRef = useRef(!TERMINAL_STATUSES.has(download.status));
     const [playerFile, setPlayerFile] = useState(null);
@@ -100,6 +102,8 @@ export default function DownloadItem({ download, onMarkWatched }) {
                     file={playerFile}
                     title={displayProgress.title}
                     allFiles={allFiles}
+                    imdbId={download.imdb_id}
+                    userLang={language}
                     onFileChange={setPlayerFile}
                     onClose={() => setPlayerFile(null)}
                 />
