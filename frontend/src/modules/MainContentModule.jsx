@@ -7,6 +7,8 @@ import { filmsApi } from "../api/films";
 import MovieCard from "./submodules/MovieCard";
 import BrowseView from "./submodules/BrowseView";
 import SearchResultRow from "./submodules/SearchResultRow";
+import WatchModal from "./submodules/WatchModal";
+import PlayerViewModule from "./PlayerViewModule";
 
 const BROWSE_GENRES = ["", "Action", "Comedy", "Drama", "Horror", "Thriller", "Sci-Fi", "Animation", "Romance", "Crime", "Adventure", "Documentary", "Family"];
 const BROWSE_PERIODS = [
@@ -173,6 +175,10 @@ export default function MainContentModule() {
 
     const handleTabClick = (tab) => {
         setCurrentTab(tab);
+        // Close the player view if open so the tab content is visible
+        if (playerFile) {
+            setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerMovie(null); setPlayerTorrents([]);
+        }
     };
 
     const clearSearch = () => {
@@ -256,12 +262,6 @@ export default function MainContentModule() {
         }
     }, [loadFilms]);
 
-    /** Navigate to the dedicated watch page for a film */
-    const handleWatchFilm = useCallback((movie) => {
-        if (!movie?.imdbid) return;
-        navigate(`/watch/${movie.imdbid}`);
-    }, [navigate]);
-
     const handleMarkWatched = useCallback(async (imdbId) => {
         if (!isLogged || !imdbId) return;
         // If the user already has a watched entry, don't reset their progress
@@ -299,25 +299,25 @@ export default function MainContentModule() {
     }, [isLogged, playerImdbId]);
 
     /** Open the film detail / player modal from the library */
-    // const handleWatchFilm = useCallback(async (movie) => {
-    //     if (!movie?.imdbid) return;
-    //     setPlayerMovie(movie);
-    //     setPlayerTitle(movie.title || "");
-    //     setPlayerImdbId(movie.imdbid);
-    //     setPlayerFile(null);
-    //     setPlayerTorrents([]);
-    //     try {
-    //         const [filesRes, torrentsRes] = await Promise.all([
-    //             filmsApi.getFilmFiles(movie.imdbid).catch(() => ({ data: { files: [] } })),
-    //             filmsApi.getFilmTorrents(movie.imdbid).catch(() => ({ data: { torrents: [] } })),
-    //         ]);
-    //         setPlayerAllFiles(filesRes.data?.files || []);
-    //         setPlayerTorrents(torrentsRes.data?.torrents || []);
-    //     } catch {
-    //         setPlayerAllFiles([]);
-    //         setPlayerTorrents([]);
-    //     }
-    // }, []);
+    const handleWatchFilm = useCallback(async (movie) => {
+        if (!movie?.imdbid) return;
+        setPlayerMovie(movie);
+        setPlayerTitle(movie.title || "");
+        setPlayerImdbId(movie.imdbid);
+        setPlayerFile(null);
+        setPlayerTorrents([]);
+        try {
+            const [filesRes, torrentsRes] = await Promise.all([
+                filmsApi.getFilmFiles(movie.imdbid).catch(() => ({ data: { files: [] } })),
+                filmsApi.getFilmTorrents(movie.imdbid).catch(() => ({ data: { torrents: [] } })),
+            ]);
+            setPlayerAllFiles(filesRes.data?.files || []);
+            setPlayerTorrents(torrentsRes.data?.torrents || []);
+        } catch {
+            setPlayerAllFiles([]);
+            setPlayerTorrents([]);
+        }
+    }, []);
 
     /** Reload torrents + files for the currently open modal */
     const refreshModal = useCallback(async () => {
@@ -483,7 +483,16 @@ export default function MainContentModule() {
             </aside>
 
             <div style={s.tabContentArea}>
-                {currentTab === "browse" && (
+                {/* PlayerViewModule: replaces tab content when a file is playing */}
+                {playerFile && playerImdbId ? (
+                    <PlayerViewModule
+                        imdbId={playerImdbId}
+                        selectedFile={playerFile}
+                        onTimeReport={handleTimeReport}
+                        initialTime={playerImdbId ? (watchedImdbIds.get(playerImdbId)?.stopped_at || 0) : 0}
+                        onBack={() => { setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerMovie(null); setPlayerTorrents([]); }}
+                    />
+                ) : currentTab === "browse" ? (
                     <div style={s.searchTab}>
                         <div style={s.searchList}>
 
@@ -578,9 +587,7 @@ export default function MainContentModule() {
                             )}
                         </div>
                     </div>
-                )}
-
-                {currentTab === "library" && (
+                ) : currentTab === "library" ? (
                     <div style={s.libraryTab}>
                         {/*  Library movie grid  */}
                         {libraryLoading && filteredLibraryMovies.length === 0 && (
@@ -644,11 +651,11 @@ export default function MainContentModule() {
                             );
                         })()}
                     </div>
-                )}
+                ) : null}
             </div>
 
-            {/* Player / file-picker modal (opened from library) */}
-            {playerMovie && (
+            {/* WatchModal overlay: torrent controls + file picker (intermediate between library cards and player) */}
+            {playerMovie && !playerFile && (
                 <WatchModal
                     file={playerFile}
                     title={playerTitle}
