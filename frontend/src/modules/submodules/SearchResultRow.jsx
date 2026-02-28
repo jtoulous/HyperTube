@@ -201,7 +201,7 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                                             disabled={dlLoading || dlSuccess}
                                             title="Download torrent"
                                         >
-                                            {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : result.magneturl ? "🧲 Download" : "⬇ Download (.torrent)"}
+                                        {dlLoading ? "⏳ Starting..." : dlSuccess ? "✓ Download started" : result.magneturl ? "Download (magnet)" : "Download (.torrent)"}
                                         </button>
                                     )}
                                 </div>

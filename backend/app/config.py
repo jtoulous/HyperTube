@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     JACKETT_URL: str = os.environ.get("JACKETT_URL", "http://hypertube-jackett:9117")
     JACKETT_API_KEY: str = os.environ.get("JACKETT_API_KEY", "hypertube_jackett_api_key")
     TMDB_API_KEY: str = os.environ.get("TMDB_API_KEY", "")
+    SUBDL_API_KEY: str = os.environ.get("SUBDL_API_KEY", "")
 
     class Config:
         env_file = ".env"

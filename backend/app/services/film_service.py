@@ -9,7 +9,7 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 SPEED_SAFETY_FACTOR = 0.90
-BUFFER_MARGIN = 0.02
+BUFFER_MARGIN = 0.10
 WATCHED_THRESHOLD_SECONDS = 300
 
 

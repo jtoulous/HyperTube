@@ -101,6 +101,7 @@ export default function PlayerViewModule({
                             <>
                                 <PlayerModule
                                     filename={selectedFile.name}
+                                    imdbId={imdbId}
                                     onTimeReport={onTimeReport}
                                     initialTime={initialTime}
                                 />

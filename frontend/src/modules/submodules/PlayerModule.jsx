@@ -1,13 +1,46 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import Icon from "@mdi/react";
 import {
     mdiPlay, mdiPause,
     mdiVolumeHigh, mdiVolumeMedium, mdiVolumeOff,
     mdiTranslate, mdiCog,
     mdiFullscreen, mdiFullscreenExit,
+    mdiSubtitles,
 } from "@mdi/js";
 
-const RESOLUTIONS = ["360", "480", "720", "original"];
+const RESOLUTIONS = ["original", "720", "480", "360"];
+
+const LANG_NAMES = {
+    // ISO 639-1 (2-letter)
+    en: "English", fr: "French", es: "Spanish", de: "German", pt: "Portuguese",
+    it: "Italian", ja: "Japanese", ko: "Korean", zh: "Chinese", ar: "Arabic",
+    ru: "Russian", nl: "Dutch", pl: "Polish", sv: "Swedish", da: "Danish",
+    fi: "Finnish", no: "Norwegian", tr: "Turkish", el: "Greek", he: "Hebrew",
+    hu: "Hungarian", cs: "Czech", ro: "Romanian", th: "Thai", vi: "Vietnamese",
+    id: "Indonesian", ms: "Malay", hi: "Hindi", bn: "Bengali", uk: "Ukrainian",
+    bg: "Bulgarian", hr: "Croatian", sk: "Slovak", sl: "Slovenian", sr: "Serbian",
+    lt: "Lithuanian", lv: "Latvian", et: "Estonian", ca: "Catalan", gl: "Galician",
+    eu: "Basque", fa: "Persian", ur: "Urdu", ta: "Tamil", te: "Telugu",
+    // ISO 639-2/B (3-letter, used by MKV/FFmpeg)
+    eng: "English", fre: "French", fra: "French", spa: "Spanish", ger: "German",
+    deu: "German", por: "Portuguese", ita: "Italian", jpn: "Japanese", kor: "Korean",
+    zho: "Chinese", chi: "Chinese", ara: "Arabic", rus: "Russian", dut: "Dutch",
+    nld: "Dutch", pol: "Polish", swe: "Swedish", dan: "Danish", fin: "Finnish",
+    nor: "Norwegian", tur: "Turkish", gre: "Greek", ell: "Greek", heb: "Hebrew",
+    hun: "Hungarian", cze: "Czech", ces: "Czech", rum: "Romanian", ron: "Romanian",
+    tha: "Thai", vie: "Vietnamese", ind: "Indonesian", may: "Malay", msa: "Malay",
+    hin: "Hindi", ben: "Bengali", ukr: "Ukrainian", bul: "Bulgarian", hrv: "Croatian",
+    slk: "Slovak", slo: "Slovak", slv: "Slovenian", srp: "Serbian", lit: "Lithuanian",
+    lav: "Latvian", est: "Estonian", cat: "Catalan", glg: "Galician", baq: "Basque",
+    eus: "Basque", per: "Persian", fas: "Persian", urd: "Urdu", tam: "Tamil",
+    tel: "Telugu", und: "Unknown",
+    // Additional 3-letter codes
+    kan: "Kannada", mal: "Malayalam", nob: "Norwegian Bokmål",
+};
+function langName(code) {
+    if (!code) return "Unknown";
+    return LANG_NAMES[code.toLowerCase()] || code.charAt(0).toUpperCase() + code.slice(1);
+}
 
 function formatTime(sec) {
     if (!sec || isNaN(sec) || !isFinite(sec)) return "0:00";
@@ -28,7 +61,7 @@ function buildUrl(filename, resolution, audioTrack, start) {
     return `/api/v1/stream/${filename}?${p}`;
 }
 
-export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }) {
+export default function PlayerModule({ filename, imdbId, onTimeReport, initialTime = 0 }) {
     const videoRef      = useRef(null);
     const containerRef  = useRef(null);
     const seekRef       = useRef(null);
@@ -67,9 +100,22 @@ export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }
     const [isFullscreen,    setIsFullscreen]     = useState(false);
     const [showResMenu,     setShowResMenu]      = useState(false);
     const [showLangMenu,    setShowLangMenu]     = useState(false);
+    const [showSubMenu,     setShowSubMenu]      = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
 
-    // Derived absolute time
+    // Subtitle state
+    const [subtitleTracks,    setSubtitleTracks]    = useState([]);
+    const [onlineResults,     setOnlineResults]     = useState([]);
+    const [onlineSubtitles,   setOnlineSubtitles]   = useState([]);
+    const [onlineSearching,   setOnlineSearching]   = useState(false);
+    const [onlineSearchDone,  setOnlineSearchDone]  = useState(false);
+    const [downloadingFileId, setDownloadingFileId] = useState(null);  // url being downloaded
+    const [activeSubtitle,    setActiveSubtitle]    = useState(-1);   // -1 = off
+    const [activeCueText,     setActiveCueText]     = useState("");   // current subtitle text to render
+    const [parsedCues,        setParsedCues]        = useState([]);   // array of arrays of {start, end, text}
+    const vttCacheRef  = useRef(new Map());  // src → raw VTT text
+
+    // Derived absolute time: timeOffset = actual keyframe time, currentTime = relative from there
     const absTime = timeOffset + currentTime;
     const progress = totalDuration > 0 ? (absTime / totalDuration) * 100 : 0;
     const bufferProgress = totalDuration > 0 ? ((timeOffset + buffered) / totalDuration) * 100 : 0;
@@ -81,20 +127,39 @@ export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }
         initialTimeApplied.current = false;
         setAudioTrack(0);
         setResolution("original");
+        setActiveSubtitle(-1);
+        setOnlineSubtitles(prev => { prev.forEach(os => URL.revokeObjectURL(os.url)); return []; });
+        setOnlineResults([]);
+        setOnlineSearchDone(false);
+        vttCacheRef.current.clear();
+        setParsedCues([]);
 
         const resumeTime = initialTime || 0;
-        setTimeOffset(resumeTime);
         setStartParam(resumeTime);
+        setCurrentTime(0);
+
+        // For copy mode, probe actual keyframe time; for start=0 just use 0
+        if (resumeTime > 0) {
+            fetch(`/api/v1/stream/keyframe-time/${filename}?start=${resumeTime}`)
+                .then(r => r.json())
+                .then(data => setTimeOffset(data.actual_start ?? resumeTime))
+                .catch(() => setTimeOffset(resumeTime));
+        } else {
+            setTimeOffset(0);
+        }
 
         fetch(`/api/v1/stream/info/${filename}`)
             .then(r => r.json())
             .then(data => {
                 setTotalDuration(data.duration || 0);
                 setAudioTracks(data.audio_tracks || []);
+                setSubtitleTracks(data.subtitle_tracks || []);
+                console.log("[SUB] /info subtitle_tracks:", JSON.stringify(data.subtitle_tracks));
             })
             .catch(() => {
                 setTotalDuration(0);
                 setAudioTracks([]);
+                setSubtitleTracks([]);
             });
     }, [filename]);
 
@@ -215,9 +280,168 @@ export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }
                 setControlsVisible(false);
                 setShowResMenu(false);
                 setShowLangMenu(false);
+                setShowSubMenu(false);
             }
         }, 3000);
     }, []);
+
+    // Combined subtitle list (embedded + downloaded online)
+    const allSubtitles = useMemo(() => {
+        const list = [
+            ...subtitleTracks.map((t) => ({
+                label: langName(t.language) + (t.title !== t.language ? ` — ${t.title}` : ""),
+                language: t.language,
+                src: `/api/v1/stream/subtitles/${filename}?track=${t.index}`,
+            })),
+            ...onlineSubtitles.map(os => ({
+                label: os.name, language: os.language || "", src: os.url,
+            })),
+        ];
+        console.log("[SUB] allSubtitles:", list.map(s => ({ label: s.label, src: s.src })));
+        return list;
+    }, [subtitleTracks, onlineSubtitles, filename]);
+
+    // Parse a VTT string into an array of {start, end, text}
+    const parseVtt = useCallback((vttText) => {
+        const cues = [];
+        const blocks = vttText.split(/\n\n+/);
+
+        // Convert a VTT timestamp (HH:MM:SS.mmm or MM:SS.mmm) to seconds
+        const parseTs = (str) => {
+            const parts = str.split(":");
+            if (parts.length === 3) {
+                // HH:MM:SS.mmm
+                return +parts[0]*3600 + +parts[1]*60 + parseFloat(parts[2]);
+            } else if (parts.length === 2) {
+                // MM:SS.mmm
+                return +parts[0]*60 + parseFloat(parts[1]);
+            }
+            return 0;
+        };
+
+        for (const block of blocks) {
+            const m = block.match(/(\d{1,2}:\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[.,]\d{3})|(\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{2}:\d{2}[.,]\d{3})/);
+            if (!m) continue;
+            const startStr = m[1] || m[3];
+            const endStr   = m[2] || m[4];
+            const start = parseTs(startStr.replace(",", "."));
+            const end   = parseTs(endStr.replace(",", "."));
+            // Text is everything after the timestamp line
+            const lines = block.split("\n");
+            const tsIdx = lines.findIndex(l => /-->/.test(l));
+            const text = lines.slice(tsIdx + 1).join("\n").trim();
+            if (text) cues.push({ start, end, text });
+        }
+        return cues;
+    }, []);
+
+    // Fetch & parse VTT for all subtitle tracks (cached)
+    useEffect(() => {
+        let cancelled = false;
+
+        (async () => {
+            const allCues = [];
+            for (const sub of allSubtitles) {
+                let raw = vttCacheRef.current.get(sub.src);
+                if (!raw) {
+                    try {
+                        const resp = await fetch(sub.src);
+                        console.log(`[SUB] fetch ${sub.src} → status=${resp.status}`);
+                        raw = await resp.text();
+                        console.log(`[SUB] VTT raw (first 300): ${raw.slice(0, 300)}`);
+                        vttCacheRef.current.set(sub.src, raw);
+                    } catch (e) {
+                        console.error(`[SUB] fetch error for ${sub.src}:`, e);
+                        allCues.push([]);
+                        continue;
+                    }
+                }
+                if (cancelled) return;
+                const cues = parseVtt(raw);
+                console.log(`[SUB] parsed ${sub.label}: ${cues.length} cues`, cues.length > 0 ? `first=${JSON.stringify(cues[0])}` : "(empty)");
+                allCues.push(cues);
+            }
+            if (!cancelled) {
+                console.log(`[SUB] setParsedCues: ${allCues.length} tracks, cue counts: [${allCues.map(c=>c.length).join(", ")}]`);
+                setParsedCues(allCues);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [allSubtitles, parseVtt]);
+
+    // Render active subtitle text based on absTime (absolute movie time)
+    useEffect(() => {
+        if (activeSubtitle < 0 || activeSubtitle >= parsedCues.length) {
+            setActiveCueText("");
+            return;
+        }
+        const cues = parsedCues[activeSubtitle];
+        if (!cues || cues.length === 0) { setActiveCueText(""); return; }
+
+        console.log(`[SUB] Renderer active: trackIdx=${activeSubtitle}, cues=${cues.length}`);
+        let logCount = 0;
+
+        let rafId;
+        const update = () => {
+            const t = absTimeRef.current;
+            // Find active cues at time t (binary-ish scan, typically just 1-2 active)
+            const active = [];
+            for (const c of cues) {
+                if (c.start > t + 1) break; // cues sorted by start, stop early
+                if (t >= c.start && t < c.end) active.push(c.text);
+            }
+            if (logCount < 5 && t > 0) {
+                console.log(`[SUB] RAF t=${t.toFixed(2)} active=${active.length} firstCue=[${cues[0].start.toFixed(1)}-${cues[0].end.toFixed(1)}]`);
+                logCount++;
+            }
+            setActiveCueText(active.join("\n"));
+            rafId = requestAnimationFrame(update);
+        };
+        rafId = requestAnimationFrame(update);
+        return () => cancelAnimationFrame(rafId);
+    }, [activeSubtitle, parsedCues]);
+
+    // Search for online subtitles (Subdl)
+    const searchOnlineSubtitles = useCallback(async () => {
+        if (!imdbId || onlineSearchDone) return;
+        setOnlineSearching(true);
+        try {
+            const resp = await fetch(`/api/v1/stream/online-subtitles/search?imdb_id=${encodeURIComponent(imdbId)}&languages=en,fr,es,de,pt,it,ja,ko,zh,ar,ru`);
+            const data = await resp.json();
+            setOnlineResults(data.results || []);
+        } catch {
+            setOnlineResults([]);
+        }
+        setOnlineSearching(false);
+        setOnlineSearchDone(true);
+    }, [imdbId, onlineSearchDone]);
+
+    // Download an online subtitle and add it as a track
+    const downloadOnlineSub = useCallback(async (result) => {
+        if (downloadingFileId) return;
+        setDownloadingFileId(result.url);
+        try {
+            const resp = await fetch(`/api/v1/stream/online-subtitles/download?url=${encodeURIComponent(result.url)}`);
+            if (!resp.ok) throw new Error("Download failed");
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const name = `${langName(result.language)} — ${result.release || result.file_name}`.slice(0, 60);
+            setOnlineSubtitles(prev => [...prev, { name, language: result.language, url: blobUrl, dlUrl: result.url }]);
+            // Auto-select the downloaded subtitle
+            setActiveSubtitle(subtitleTracks.length + onlineSubtitles.length);
+        } catch (e) {
+            console.error("Subtitle download failed:", e);
+        }
+        setDownloadingFileId(null);
+    }, [downloadingFileId, subtitleTracks.length, onlineSubtitles.length]);
+
+    // Auto-fetch online subtitles when subtitle menu is opened
+    useEffect(() => {
+        if (showSubMenu && imdbId && !onlineSearchDone && !onlineSearching) {
+            searchOnlineSubtitles();
+        }
+    }, [showSubMenu, searchOnlineSubtitles, onlineSearchDone, onlineSearching, imdbId]);
 
     // Actions
     const togglePlay = () => {
@@ -243,16 +467,33 @@ export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }
             : el.requestFullscreen().catch(() => {});
     };
 
-    // Reload the stream at a new position/resolution/track, preserving play state
-    const reloadStream = useCallback(({ time, res, track } = {}) => {
+    // Reload the stream at a new position/resolution/track, preserving play state.
+    // For copy mode, we AWAIT the keyframe probe so timeOffset is set correctly
+    // BEFORE startParam triggers the stream URL change.
+    const reloadStream = useCallback(async ({ time, res, track } = {}) => {
         const video = videoRef.current;
         wasPlayingRef.current = !!(video && !video.paused);
-        const absTime = timeOffset + (video?.currentTime || 0);
-        setTimeOffset(time ?? absTime);
-        setStartParam(time ?? absTime);
+        const currentAbsTime = timeOffset + (video?.currentTime || 0);
+        const seekTarget = time ?? currentAbsTime;
+        const effectiveRes = res !== undefined ? res : resolution;
+
+        // Determine actual keyframe offset for copy mode
+        let actualOffset = seekTarget;
+        if (effectiveRes === "original" && seekTarget > 0) {
+            try {
+                const resp = await fetch(`/api/v1/stream/keyframe-time/${filename}?start=${seekTarget}`);
+                const data = await resp.json();
+                if (data.actual_start != null) actualOffset = data.actual_start;
+            } catch {}
+        }
+
+        // Set timeOffset first, then startParam (which triggers stream URL change)
+        setTimeOffset(actualOffset);
+        setCurrentTime(0);
+        setStartParam(seekTarget);
         if (res   !== undefined) setResolution(res);
         if (track !== undefined) setAudioTrack(track);
-    }, [timeOffset]);
+    }, [timeOffset, filename, resolution]);
 
     // Seek to an absolute timestamp (seconds) by reloading the stream
     const seekToAbsolute = useCallback((absoluteSec) => {
@@ -334,6 +575,15 @@ export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }
                 </span>
             </div>
 
+            {/* Custom subtitle overlay */}
+            {activeCueText && (
+                <div style={styles.subtitleOverlay}>
+                    <span style={styles.subtitleText}
+                          dangerouslySetInnerHTML={{ __html: activeCueText.replace(/\n/g, "<br/>") }}
+                    />
+                </div>
+            )}
+
             {/* Bottom controls */}
             <div style={{ ...styles.controls, opacity: controlsVisible ? 1 : 0, pointerEvents: controlsVisible ? "auto" : "none" }}>
 
@@ -374,7 +624,7 @@ export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }
                             <button
                                 style={styles.ctrlBtn}
                                 title="Audio track"
-                                onClick={() => { setShowLangMenu(v => !v); setShowResMenu(false); }}
+                                onClick={() => { setShowLangMenu(v => !v); setShowResMenu(false); setShowSubMenu(false); }}
                             >
                                 <Icon path={mdiTranslate} size={1} />
                             </button>
@@ -396,12 +646,87 @@ export default function PlayerModule({ filename, onTimeReport, initialTime = 0 }
                             )}
                         </div>
 
+                        {/* Subtitles */}
+                        <div style={styles.menuWrapper}>
+                            <button
+                                style={styles.ctrlBtn}
+                                title="Subtitles"
+                                onClick={() => { setShowSubMenu(v => !v); setShowResMenu(false); setShowLangMenu(false); }}
+                            >
+                                <Icon path={mdiSubtitles} size={1} />
+                            </button>
+                            {showSubMenu && (
+                                <div
+                                    style={{ ...styles.popupMenu, maxHeight: 340, overflowY: "auto", overflowX: "hidden", minWidth: 220 }}
+                                    onClick={e => e.stopPropagation()}
+                                    onMouseDown={e => e.stopPropagation()}
+                                >
+                                    {/* Off + embedded tracks */}
+                                    <button
+                                        style={{ ...styles.menuItem, ...(activeSubtitle === -1 ? styles.menuItemActive : {}) }}
+                                        onClick={() => { setActiveSubtitle(-1); setShowSubMenu(false); }}
+                                    >
+                                        Off
+                                    </button>
+                                    {allSubtitles.map((sub, i) => (
+                                        <button
+                                            key={i}
+                                            style={{ ...styles.menuItem, ...(activeSubtitle === i ? styles.menuItemActive : {}) }}
+                                            onClick={() => { setActiveSubtitle(i); setShowSubMenu(false); }}
+                                        >
+                                            {sub.label}
+                                        </button>
+                                    ))}
+
+                                    {/* Online subtitles section */}
+                                    {imdbId && (
+                                        <>
+                                            <div style={styles.menuDivider} />
+                                            <span style={styles.menuSectionLabel}>Subdl.com</span>
+                                            {onlineSearching && (
+                                                <span style={styles.menuEmpty}>Searching…</span>
+                                            )}
+                                            {onlineSearchDone && onlineResults.length === 0 && (
+                                                <span style={styles.menuEmpty}>No subtitles found</span>
+                                            )}
+                                            {onlineResults.map((r, idx) => {
+                                                const alreadyDownloaded = onlineSubtitles.some(os => os.dlUrl === r.url);
+                                                const isDownloading = downloadingFileId === r.url;
+                                                return (
+                                                    <button
+                                                        key={r.url || `sub-${idx}`}
+                                                        style={{
+                                                            ...styles.menuItem,
+                                                            ...(alreadyDownloaded ? { color: "#238636" } : {}),
+                                                            opacity: isDownloading ? 0.5 : 1,
+                                                        }}
+                                                        onClick={alreadyDownloaded ? undefined : () => downloadOnlineSub(r)}
+                                                        disabled={isDownloading}
+                                                        title={r.release || r.file_name}
+                                                    >
+                                                        <span style={{ fontWeight: 600, marginRight: 6, fontSize: "0.72rem" }}>
+                                                            {langName(r.language)}
+                                                        </span>
+                                                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                            {r.release || r.file_name}
+                                                        </span>
+                                                        {isDownloading && <span style={{ marginLeft: 4 }}>…</span>}
+                                                        {alreadyDownloaded && <span style={{ marginLeft: 4, fontSize: "0.7rem" }}>✓</span>}
+                                                    </button>
+                                                );
+                                            })}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Resolution */}
                         <div style={styles.menuWrapper}>
                             <button
                                 style={styles.ctrlBtn}
                                 title="Quality"
-                                onClick={() => { setShowResMenu(v => !v); setShowLangMenu(false); }}
+                                onClick={() => { setShowResMenu(v => !v); setShowLangMenu(false); setShowSubMenu(false); }}
                             >
                                 <Icon path={mdiCog} size={1} />
                             </button>
@@ -459,6 +784,28 @@ const styles = {
         justifyContent: "center",
         background: "rgba(0,0,0,0.25)",
         cursor: "pointer",
+        zIndex: 1,
+    },
+    subtitleOverlay: {
+        position: "absolute",
+        bottom: "60px",
+        left: "10%",
+        right: "10%",
+        textAlign: "center",
+        pointerEvents: "none",
+        zIndex: 15,
+    },
+    subtitleText: {
+        display: "inline",
+        padding: "2px 8px",
+        background: "rgba(0,0,0,0.7)",
+        color: "#fff",
+        fontSize: "clamp(1rem, 2.5vw, 1.6rem)",
+        fontFamily: "'Inter', sans-serif",
+        lineHeight: 1.4,
+        borderRadius: "3px",
+        boxDecorationBreak: "clone",
+        WebkitBoxDecorationBreak: "clone",
     },
     bigPlayBtn: {
         width: "64px",
@@ -497,6 +844,7 @@ const styles = {
         background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)",
         padding: "0.5rem 0.6rem 0.45rem",
         transition: "opacity 0.3s",
+        zIndex: 20,
     },
     seekBar: {
         position: "relative",
@@ -577,7 +925,7 @@ const styles = {
         minWidth: "120px",
         boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
         backdropFilter: "blur(8px)",
-        zIndex: 10,
+        zIndex: 30,
     },
     menuItem: {
         display: "block",
@@ -595,11 +943,26 @@ const styles = {
         color: "#007BFF",
         fontWeight: 600,
     },
+    menuDivider: {
+        height: 1,
+        background: "rgba(255,255,255,0.1)",
+        margin: "0.2rem 0",
+    },
     menuEmpty: {
         display: "block",
         padding: "0.4rem 0.85rem",
         color: "#555",
         fontSize: "0.78rem",
+        fontFamily: "'Inter', sans-serif",
+    },
+    menuSectionLabel: {
+        display: "block",
+        padding: "0.25rem 0.85rem 0.15rem",
+        color: "#888",
+        fontSize: "0.68rem",
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.04em",
         fontFamily: "'Inter', sans-serif",
     },
 };
