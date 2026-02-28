@@ -5,7 +5,10 @@ export const filmsApi = {
     getFilms: () => api.get("/films"),
 
     /** Video files for a specific film (by IMDb ID) */
-    getFilmFiles: (imdbId) => api.get(`/films/${imdbId}/files`),
+    getFilmFiles: (imdbId) => api.get(`/films/${encodeURIComponent(imdbId)}/files`),
+
+    /** All torrents associated with a film, with live qBittorrent status */
+    getFilmTorrents: (imdbId) => api.get(`/films/${encodeURIComponent(imdbId)}/torrents`),
 
     getWatchedIds: () => api.get("/films/watched"),
 
@@ -15,7 +18,7 @@ export const filmsApi = {
     updateProgress: (imdbId, stoppedAt) =>
         api.put("/films/watched/progress", { imdb_id: imdbId, stopped_at: stoppedAt }),
 
-    unmarkWatched: (imdbId) => api.delete(`/films/watched/${imdbId}`),
+    unmarkWatched: (imdbId) => api.delete(`/films/watched/${encodeURIComponent(imdbId)}`),
 
     /** Comments */
     getComments: (imdbId) => api.get(`/films/${imdbId}/comments`),

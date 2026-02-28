@@ -43,9 +43,10 @@ async def _run_ffprobe(filepath: str) -> dict:
     )
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
+        logger.warning(f"ffprobe failed on {filepath}: {stderr.decode()[:200]}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"ffprobe failed: {stderr.decode()}"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="File is not yet playable (still downloading or corrupt)",
         )
     return json.loads(stdout)
 

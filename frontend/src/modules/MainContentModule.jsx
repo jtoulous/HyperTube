@@ -66,7 +66,13 @@ export default function MainContentModule() {
 
     const [watchedImdbIds, setWatchedImdbIds] = useState(new Map());
 
-
+    /* Player state for watching from library */
+    const [playerFile, setPlayerFile] = useState(null);
+    const [playerTitle, setPlayerTitle] = useState("");
+    const [playerAllFiles, setPlayerAllFiles] = useState([]);
+    const [playerImdbId, setPlayerImdbId] = useState(null);
+    const [playerMovie, setPlayerMovie] = useState(null);
+    const [playerTorrents, setPlayerTorrents] = useState([]);
 
     /*  Load watched IDs from API  */
     const loadWatchedIds = useCallback(async () => {
@@ -101,6 +107,7 @@ export default function MainContentModule() {
                 download_speed: f.download_speed,
                 can_watch: f.can_watch,
                 watch_ready_in: f.watch_ready_in,
+                availability: f.availability,
                 duration: f.duration,
                 eta: f.eta,
             }));
@@ -119,13 +126,24 @@ export default function MainContentModule() {
     /* Load films once on mount so filmStatusMap is available on all tabs */
     useEffect(() => { loadFilms(); }, [loadFilms]);
 
-    /* While on the library tab, refresh every 5 s so progress stays live */
+    /* While on the library tab or while the modal is open, refresh every 5 s so progress stays live */
     useEffect(() => {
-        if (currentTab !== "library") return;
+        if (currentTab !== "library" && !playerMovie) return;
         loadFilms();
         const iv = setInterval(loadFilms, 5000);
         return () => clearInterval(iv);
-    }, [currentTab, loadFilms]);
+    }, [currentTab, loadFilms, !!playerMovie]);
+
+    /* Keep playerMovie in sync with live library data + refresh torrent list */
+    useEffect(() => {
+        if (!playerMovie) return;
+        const fresh = libraryMovies.find(m => m.imdbid === playerMovie.imdbid);
+        if (fresh) setPlayerMovie(fresh);
+        // Also refresh torrents on each library poll
+        filmsApi.getFilmTorrents(playerMovie.imdbid)
+            .then(res => setPlayerTorrents(res.data?.torrents || []))
+            .catch(() => {});
+    }, [libraryMovies]);
 
     /*  Filtered / sorted library movies  */
     const filteredLibraryMovies = useMemo(() => {
@@ -243,6 +261,118 @@ export default function MainContentModule() {
         if (!movie?.imdbid) return;
         navigate(`/watch/${movie.imdbid}`);
     }, [navigate]);
+
+    const handleMarkWatched = useCallback(async (imdbId) => {
+        if (!isLogged || !imdbId) return;
+        // If the user already has a watched entry, don't reset their progress
+        if (watchedImdbIds.has(imdbId)) return;
+        try {
+            await filmsApi.markWatched(imdbId, 0);
+            setWatchedImdbIds(prev => {
+                const next = new Map(prev);
+                next.set(imdbId, { imdb_id: imdbId, stopped_at: 0, is_completed: false });
+                return next;
+            });
+        } catch (err) {
+            console.error("Failed to mark watched:", err);
+        }
+    }, [isLogged, watchedImdbIds]);
+
+    /** Report playback progress from the player — called periodically and on unmount */
+    const handleTimeReport = useCallback(async (stoppedAt, duration) => {
+        if (!isLogged || !playerImdbId) return;
+        try {
+            const res = await filmsApi.updateProgress(playerImdbId, stoppedAt);
+            const d = res.data;
+            setWatchedImdbIds(prev => {
+                const next = new Map(prev);
+                next.set(playerImdbId, {
+                    imdb_id: playerImdbId,
+                    stopped_at: d.stopped_at ?? stoppedAt,
+                    is_completed: d.is_completed ?? false,
+                });
+                return next;
+            });
+        } catch (err) {
+            console.error("Failed to update progress:", err);
+        }
+    }, [isLogged, playerImdbId]);
+
+    /** Open the film detail / player modal from the library */
+    // const handleWatchFilm = useCallback(async (movie) => {
+    //     if (!movie?.imdbid) return;
+    //     setPlayerMovie(movie);
+    //     setPlayerTitle(movie.title || "");
+    //     setPlayerImdbId(movie.imdbid);
+    //     setPlayerFile(null);
+    //     setPlayerTorrents([]);
+    //     try {
+    //         const [filesRes, torrentsRes] = await Promise.all([
+    //             filmsApi.getFilmFiles(movie.imdbid).catch(() => ({ data: { files: [] } })),
+    //             filmsApi.getFilmTorrents(movie.imdbid).catch(() => ({ data: { torrents: [] } })),
+    //         ]);
+    //         setPlayerAllFiles(filesRes.data?.files || []);
+    //         setPlayerTorrents(torrentsRes.data?.torrents || []);
+    //     } catch {
+    //         setPlayerAllFiles([]);
+    //         setPlayerTorrents([]);
+    //     }
+    // }, []);
+
+    /** Reload torrents + files for the currently open modal */
+    const refreshModal = useCallback(async () => {
+        if (!playerImdbId) return;
+        try {
+            const [filesRes, torrentsRes] = await Promise.all([
+                filmsApi.getFilmFiles(playerImdbId).catch(() => ({ data: { files: [] } })),
+                filmsApi.getFilmTorrents(playerImdbId).catch(() => ({ data: { torrents: [] } })),
+            ]);
+            setPlayerAllFiles(filesRes.data?.files || []);
+            setPlayerTorrents(torrentsRes.data?.torrents || []);
+        } catch { /* ignore */ }
+        // Also refresh library so playerMovie.can_watch stays current
+        loadFilms();
+    }, [playerImdbId, loadFilms]);
+
+    /** Per-torrent control handlers — accept hash from WatchModal */
+    const handleTorrentPause = useCallback(async (hash) => {
+        try { await downloadsApi.pauseTorrent(hash); loadFilms(); refreshModal(); } catch (e) { console.error(e); }
+    }, [loadFilms, refreshModal]);
+    const handleTorrentResume = useCallback(async (hash) => {
+        try { await downloadsApi.resumeTorrent(hash); loadFilms(); refreshModal(); } catch (e) { console.error(e); }
+    }, [loadFilms, refreshModal]);
+    const handleTorrentDelete = useCallback(async (hash) => {
+        if (!confirm("Delete this torrent and all its data?")) return;
+        try {
+            await downloadsApi.deleteTorrent(hash);
+            // Refresh library first so the film disappears if it was removed server-side
+            await loadFilms();
+            // Re-fetch torrents for the current film to see what's left
+            if (playerImdbId) {
+                try {
+                    const torrentsRes = await filmsApi.getFilmTorrents(playerImdbId);
+                    const remaining = torrentsRes.data?.torrents || [];
+                    if (remaining.length === 0) {
+                        // Film was deleted server-side — close modal
+                        setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
+                    } else {
+                        setPlayerTorrents(remaining);
+                        const filesRes = await filmsApi.getFilmFiles(playerImdbId).catch(() => ({ data: { files: [] } }));
+                        setPlayerAllFiles(filesRes.data?.files || []);
+                    }
+                } catch {
+                    // Film no longer exists on server — close modal
+                    setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
+                }
+            }
+        } catch (e) { console.error(e); }
+    }, [loadFilms, playerImdbId]);
+    const handleTorrentRecheck = useCallback(async (hash) => {
+        try { await downloadsApi.recheckTorrent(hash); refreshModal(); } catch (e) { console.error(e); }
+    }, [refreshModal]);
+    const handleTorrentReannounce = useCallback(async (hash) => {
+        try { await downloadsApi.reannounceTorrent(hash); refreshModal(); } catch (e) { console.error(e); }
+    }, [refreshModal]);
 
     /*  Computed sidebar style  */
     const sidebarStyle = isMobile
@@ -483,7 +613,7 @@ export default function MainContentModule() {
                                                         isWatched={!!(movie.imdbid && watchedImdbIds.get(movie.imdbid)?.is_completed)}
                                                         watchProgress={movie.imdbid ? watchedImdbIds.get(movie.imdbid) : undefined}
                                                         isLogged={isLogged}
-                                                        onCardClick={movie.can_watch ? () => handleWatchFilm(movie) : undefined}
+                                                        onCardClick={() => handleWatchFilm(movie)}
                                                         libraryMode
                                                     />
                                                 ))}
@@ -503,7 +633,7 @@ export default function MainContentModule() {
                                                         result={movie}
                                                         isWatched={false}
                                                         isLogged={isLogged}
-                                                        onCardClick={movie.can_watch ? () => handleWatchFilm(movie) : undefined}
+                                                        onCardClick={() => handleWatchFilm(movie)}
                                                         libraryMode
                                                     />
                                                 ))}
@@ -517,7 +647,29 @@ export default function MainContentModule() {
                 )}
             </div>
 
-
+            {/* Player / file-picker modal (opened from library) */}
+            {playerMovie && (
+                <WatchModal
+                    file={playerFile}
+                    title={playerTitle}
+                    allFiles={playerAllFiles}
+                    torrents={playerTorrents}
+                    movie={playerMovie}
+                    onFileChange={(f) => {
+                        setPlayerFile(f);
+                        if (f && playerImdbId) handleMarkWatched(playerImdbId);
+                    }}
+                    onTimeReport={handleTimeReport}
+                    initialTime={playerImdbId ? (watchedImdbIds.get(playerImdbId)?.stopped_at || 0) : 0}
+                    onClose={() => { setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerMovie(null); setPlayerTorrents([]); }}
+                    onPause={handleTorrentPause}
+                    onResume={handleTorrentResume}
+                    onDelete={handleTorrentDelete}
+                    onRecheck={handleTorrentRecheck}
+                    onReannounce={handleTorrentReannounce}
+                    onRefresh={refreshModal}
+                />
+            )}
         </div>
     );
 }

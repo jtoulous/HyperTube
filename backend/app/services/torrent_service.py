@@ -237,16 +237,22 @@ class TorrentService:
         }
 
     async def get_files(self, torrent_hash: str) -> list[dict]:
-        """List files inside a torrent."""
-        return await self._get("/api/v2/torrents/files", params={"hash": torrent_hash})
+        """List files inside a torrent.  Returns [] if the torrent no longer exists."""
+        try:
+            return await self._get("/api/v2/torrents/files", params={"hash": torrent_hash})
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                logger.debug(f"Torrent {torrent_hash} not found in qBittorrent (already deleted?)")
+                return []
+            raise
 
     async def pause(self, torrent_hash: str):
-        """Pause a torrent."""
-        await self._post("/api/v2/torrents/pause", data={"hashes": torrent_hash})
+        """Pause (stop) a torrent.  qBittorrent >= 5.x uses /stop."""
+        await self._post("/api/v2/torrents/stop", data={"hashes": torrent_hash})
 
     async def resume(self, torrent_hash: str):
-        """Resume a torrent."""
-        await self._post("/api/v2/torrents/resume", data={"hashes": torrent_hash})
+        """Resume (start) a torrent.  qBittorrent >= 5.x uses /start."""
+        await self._post("/api/v2/torrents/start", data={"hashes": torrent_hash})
 
     async def delete(self, torrent_hash: str, delete_files: bool = True):
         """Delete a torrent. By default also removes downloaded data."""
@@ -254,3 +260,11 @@ class TorrentService:
             "/api/v2/torrents/delete",
             data={"hashes": torrent_hash, "deleteFiles": str(delete_files).lower()},
         )
+
+    async def recheck(self, torrent_hash: str):
+        """Force recheck a torrent."""
+        await self._post("/api/v2/torrents/recheck", data={"hashes": torrent_hash})
+
+    async def reannounce(self, torrent_hash: str):
+        """Force reannounce a torrent to trackers."""
+        await self._post("/api/v2/torrents/reannounce", data={"hashes": torrent_hash})

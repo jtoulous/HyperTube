@@ -14,4 +14,11 @@ export const downloadsApi = {
     getDownloadProgress: (downloadId) => api.get(`/downloads/${downloadId}/progress`),
 
     getDownloadFiles: (downloadId) => api.get(`/downloads/${downloadId}/files`),
+
+    // Per-torrent controls (by hash)
+    pauseTorrent:      (hash) => api.post(`/downloads/torrent/${hash}/pause`),
+    resumeTorrent:     (hash) => api.post(`/downloads/torrent/${hash}/resume`),
+    deleteTorrent:     (hash) => api.delete(`/downloads/torrent/${hash}`),
+    recheckTorrent:    (hash) => api.post(`/downloads/torrent/${hash}/recheck`),
+    reannounceTorrent: (hash) => api.post(`/downloads/torrent/${hash}/reannounce`),
 };
