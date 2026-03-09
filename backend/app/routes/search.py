@@ -88,6 +88,9 @@ async def search_torrents(
     for r in deduped:
         r["match_quality"] = _compute_match_quality(r, target_imdbid)
 
+    # Enrich with guessit season/episode metadata
+    _enrich_guessit_metadata(deduped)
+
     # Sort: exact matches first, then unknown, then different
     # Within each tier, sort by seeders descending
     tier_order = {"exact": 0, "unknown": 1, "different": 2}
@@ -229,6 +232,39 @@ def _sort_by_relevance(results: list, query: str, target_imdbid: str | None) -> 
         return (-has_imdb_match, -title_score, -seeders)
 
     return sorted(results, key=sort_key)
+
+
+#  Guessit enrichment
+
+def _enrich_guessit_metadata(results: list[dict]) -> None:
+    """
+    Run guessit on every torrent title and attach season / episode metadata.
+    Fields added to each result:
+      - season:         int | None
+      - episode:        int | None   (first episode if guessit returns a list)
+      - is_full_season: bool         (True when a season is present but no episode)
+    """
+    for r in results:
+        title = r.get("title", "")
+        try:
+            info = guessit(title)
+        except Exception:
+            r["season"] = None
+            r["episode"] = None
+            r["is_full_season"] = False
+            continue
+
+        season = info.get("season")
+        episode = info.get("episode")
+        # guessit may return a list for multi-episode packs — take the first
+        if isinstance(episode, list):
+            episode = episode[0] if episode else None
+        if isinstance(season, list):
+            season = season[0] if season else None
+
+        r["season"] = int(season) if season is not None else None
+        r["episode"] = int(episode) if episode is not None else None
+        r["is_full_season"] = (season is not None and episode is None)
 
 
 #  Guessit enrichment — resolve IMDb IDs for torrents that lack one

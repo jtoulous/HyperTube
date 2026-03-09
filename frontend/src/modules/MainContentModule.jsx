@@ -60,6 +60,8 @@ export default function MainContentModule() {
     const [torrentSortBy,       setTorrentSortBy]       = useState("match_then_seeders");
     const [torrentFilterMatch,  setTorrentFilterMatch]  = useState("all");
     const [torrentFilterMinSeed, setTorrentFilterMinSeed] = useState(0);
+    const [torrentFilterSeason,   setTorrentFilterSeason]  = useState("all");
+    const [torrentFilterEpisode,  setTorrentFilterEpisode] = useState("all");
 
     const [browseGenre, setBrowseGenre] = useState("");
     const [browsePeriod, setBrowsePeriod] = useState("all");
@@ -168,6 +170,23 @@ export default function MainContentModule() {
         return movies;
     }, [libraryMovies, searchQuery, browseGenre, browseSortBy, browsePeriod]);
 
+    /** Season/episode options derived from backend-provided guessit fields */
+    const torrentSEData = useMemo(() => {
+        const seasons = new Set();
+        const episodes = new Set();
+        let hasSeries = false;
+        for (const r of torrentResults) {
+            if (r.season != null) { seasons.add(r.season); hasSeries = true; }
+            if (r.episode != null) { episodes.add(r.episode); hasSeries = true; }
+            if (r.is_full_season) hasSeries = true;
+        }
+        return {
+            hasSeries,
+            seasons: [...seasons].sort((a, b) => a - b),
+            episodes: [...episodes].sort((a, b) => a - b),
+        };
+    }, [torrentResults]);
+
     const processedTorrentResults = useMemo(() => {
         let items = [...torrentResults];
 
@@ -187,6 +206,23 @@ export default function MainContentModule() {
             items = items.filter(r => (r.seeders || 0) >= torrentFilterMinSeed);
         }
 
+        // Filter by season
+        if (torrentFilterSeason !== "all") {
+            const wantSeason = parseInt(torrentFilterSeason, 10);
+            items = items.filter(r => r.season === wantSeason);
+        }
+
+        // Filter by episode
+        if (torrentFilterEpisode !== "all") {
+            if (torrentFilterEpisode === "full") {
+                // Full season packs only (no specific episode)
+                items = items.filter(r => r.is_full_season);
+            } else {
+                const wantEp = parseInt(torrentFilterEpisode, 10);
+                items = items.filter(r => r.episode === wantEp || r.is_full_season);
+            }
+        }
+
         // Sort
         const matchRank = (r) => (r.match_quality === "exact" ? 0 : 1);
         switch (torrentSortBy) {
@@ -203,7 +239,7 @@ export default function MainContentModule() {
         }
 
         return items;
-    }, [torrentResults, torrentSortBy, torrentFilterMatch, torrentFilterMinSeed]);
+    }, [torrentResults, torrentSortBy, torrentFilterMatch, torrentFilterMinSeed, torrentFilterSeason, torrentFilterEpisode]);
 
     const filmStatusMap = useMemo(() => {
         const m = new Map();
@@ -260,6 +296,8 @@ export default function MainContentModule() {
         setTorrentSortBy("match_then_seeders");
         setTorrentFilterMatch("all");
         setTorrentFilterMinSeed(0);
+        setTorrentFilterSeason("all");
+        setTorrentFilterEpisode("all");
         try {
             const res = await searchApi.search(title, tmdbId);
             setTorrentResults(res.data.results || []);
@@ -625,6 +663,37 @@ export default function MainContentModule() {
                                                         <option value={50}>50+</option>
                                                     </select>
                                                 </div>
+                                                {torrentSEData.hasSeries && torrentSEData.seasons.length > 0 && (
+                                                    <div style={s.torrentControlGroup}>
+                                                        <span style={s.torrentControlLabel}>Season</span>
+                                                        <select
+                                                            style={s.torrentSelect}
+                                                            value={torrentFilterSeason}
+                                                            onChange={e => { setTorrentFilterSeason(e.target.value); setExpandedIndex(null); }}
+                                                        >
+                                                            <option value="all">All</option>
+                                                            {torrentSEData.seasons.map(n => (
+                                                                <option key={n} value={n}>S{String(n).padStart(2, "0")}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                {torrentSEData.hasSeries && torrentSEData.episodes.length > 0 && (
+                                                    <div style={s.torrentControlGroup}>
+                                                        <span style={s.torrentControlLabel}>Episode</span>
+                                                        <select
+                                                            style={s.torrentSelect}
+                                                            value={torrentFilterEpisode}
+                                                            onChange={e => { setTorrentFilterEpisode(e.target.value); setExpandedIndex(null); }}
+                                                        >
+                                                            <option value="all">All</option>
+                                                            <option value="full">Full season</option>
+                                                            {torrentSEData.episodes.map(n => (
+                                                                <option key={n} value={n}>E{String(n).padStart(2, "0")}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
                                                 <span style={s.torrentControlCount}>
                                                     {processedTorrentResults.length} / {torrentResults.length}
                                                 </span>

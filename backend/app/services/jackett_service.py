@@ -18,7 +18,7 @@ class JackettService:
         self._base = settings.JACKETT_URL.rstrip("/")
         self._api_key = settings.JACKETT_API_KEY
 
-    async def search(self, query: str, categories: str = "", offset: int = 0, limit: int = 100) -> list[dict]:
+    async def search(self, query: str, categories: str = "", offset: int = 0, limit: int = 1000) -> list[dict]:
         """
         Search across all Jackett indexers.
         Returns a list of parsed torrent results.
