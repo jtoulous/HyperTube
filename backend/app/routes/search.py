@@ -40,7 +40,7 @@ _TMDB_SORT_MAP: dict[str, str] = {
 
 #  Jackett raw torrent search
 
-_ADULT_TITLE_WORDS = {"xxx", "porn", "hentai"}
+_ADULT_TITLE_WORDS = {"xxx", "porn", "hentai", "porno", "nsfw"}
 
 def _is_adult_content(result: dict) -> bool:
     """Return True if the torrent appears to be adult / XXX content."""
@@ -53,7 +53,7 @@ def _is_adult_content(result: dict) -> bool:
             pass
     # 2. Category text
     cat = (result.get("category") or "").lower()
-    if any(k in cat for k in ("xxx", "adult", "porn")):
+    if any(k in cat for k in ("xxx", "adult", "porn", "hentai", "nsfw", "porno")):
         return True
     # 3. Title keywords
     title = _re.sub(r"[^a-z0-9\s]", " ", (result.get("title") or "").lower())
