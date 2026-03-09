@@ -490,55 +490,6 @@ export default function MainContentModule() {
 
                 <div style={s.divider} />
 
-
-                <div style={s.section}>
-                    <div style={s.sectionLabel}>Sort by</div>
-                    <select style={s.sortSelect} value={browseSortBy} onChange={e => setBrowseSortBy(e.target.value)}>
-                        {BROWSE_SORTS.map(opt => (
-                            <option key={opt.key} value={opt.key} style={s.sortOption}>{opt.label}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div style={s.section}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={s.sectionLabel}>Min Rating</div>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: browseRating > 0 ? '#007BFF' : '#484f58' }}>
-                            {browseRating > 0 ? `★ ${parseFloat(browseRating).toFixed(1)}+` : 'All'}
-                        </div>
-                    </div>
-                    <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.1"
-                        value={browseRating}
-                        onChange={(e) => setBrowseRating(e.target.value)}
-                        style={s.slider}
-                    />
-                </div>
-
-                <div style={s.section}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={s.sectionLabel}>Year</div>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: browseYear ? '#007BFF' : '#484f58' }}>
-                            {browseYear || 'Any'}
-                        </div>
-                    </div>
-                    <input
-                        type="number"
-                        min="1950"
-                        max={new Date().getFullYear()}
-                        placeholder="Any year"
-                        value={browseYear}
-                        onChange={(e) => setBrowseYear(e.target.value)}
-                        style={s.yearInput}
-                    />
-                </div>
-
-                <div style={s.divider} />
-
-
                 <div style={s.section}>
                     <div style={s.sectionLabel}>Search</div>
                     <input
@@ -565,6 +516,17 @@ export default function MainContentModule() {
                     )}
                 </div>
 
+                <div style={s.divider} />
+
+                <div style={s.section}>
+                    <div style={s.sectionLabel}>Sort by</div>
+                    <select style={s.sortSelect} value={browseSortBy} onChange={e => setBrowseSortBy(e.target.value)}>
+                        {BROWSE_SORTS.map(opt => (
+                            <option key={opt.key} value={opt.key} style={s.sortOption}>{opt.label}</option>
+                        ))}
+                    </select>
+                </div>
+
                 {currentTab === "library" && isLogged && (
                     <>
                         <div style={s.divider} />
@@ -584,6 +546,44 @@ export default function MainContentModule() {
 
                 {(currentTab === "library" || (currentTab === "browse" && !hasSearched)) && (
                     <>
+                        <div style={s.divider} />
+                        <div style={s.section}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={s.sectionLabel}>Min Rating</div>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: browseRating > 0 ? '#007BFF' : '#484f58' }}>
+                                    {browseRating > 0 ? `★ ${parseFloat(browseRating).toFixed(1)}+` : 'All'}
+                                </div>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="10"
+                                step="0.1"
+                                value={browseRating}
+                                onChange={(e) => setBrowseRating(e.target.value)}
+                                style={s.slider}
+                            />
+                        </div>
+
+                        <div style={s.divider} />
+                        <div style={s.section}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={s.sectionLabel}>Year</div>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: browseYear ? '#007BFF' : '#484f58' }}>
+                                    {browseYear || 'Any'}
+                                </div>
+                            </div>
+                            <input
+                                type="number"
+                                min="1950"
+                                max={new Date().getFullYear()}
+                                placeholder="Any year"
+                                value={browseYear}
+                                onChange={(e) => setBrowseYear(e.target.value)}
+                                style={s.yearInput}
+                            />
+                        </div>
+
                         <div style={s.divider} />
                         <div style={s.section}>
                             <div style={s.sectionLabel}>Genre</div>
