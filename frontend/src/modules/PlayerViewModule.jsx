@@ -28,6 +28,15 @@ export default function PlayerViewModule({
 
     const castContentRef = useRef(null);
 
+    /* Window width for responsive layout */
+    const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+    useEffect(() => {
+        const onResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, []);
+    const isMobile = windowWidth < 620;
+
     /* Fetch TMDB details */
     useEffect(() => {
         if (!imdbId) return;
@@ -113,25 +122,25 @@ export default function PlayerViewModule({
                     {/* ─── Movie info section ─── */}
                     {details && (
                         <section style={s.infoSection}>
-                            <div style={s.infoGrid}>
+                            <div style={{ ...s.infoGrid, ...(isMobile ? { flexDirection: "column", alignItems: "center" } : {}) }}>
                                 {details.poster && (
-                                    <div style={s.posterWrap}>
+                                    <div style={{ ...s.posterWrap, ...(isMobile ? { width: "100%", maxWidth: 180, alignSelf: "center" } : {}) }}>
                                         <img src={details.poster} alt={details.title} style={s.posterImg} />
                                     </div>
                                 )}
-                                <div style={s.infoText}>
+                                <div style={{ ...s.infoText, ...(isMobile ? { paddingTop: 0, width: "100%", alignItems: "center", textAlign: "center" } : {}) }}>
                                     <h1 style={s.movieTitle}>
                                         {details.title}
                                         {details.year && <span style={s.year}> ({details.year})</span>}
                                     </h1>
-                                    <div style={s.metaRow}>
+                                    <div style={{ ...s.metaRow, ...(isMobile ? { justifyContent: "center" } : {}) }}>
                                         {details.imdb_rating && <span style={s.rating}>★ {details.imdb_rating}</span>}
                                         {details.runtime && <span style={s.metaItem}>{details.runtime}</span>}
                                         {details.genre && <span style={s.metaItem}>{details.genre}</span>}
                                         {details.language && <span style={s.metaItem}>{details.language}</span>}
                                     </div>
-                                    {details.plot && <p style={s.plot}>{details.plot}</p>}
-                                    <div style={s.crewGrid}>
+                                    {details.plot && <p style={{ ...s.plot, ...(isMobile ? { textAlign: "left" } : {}) }}>{details.plot}</p>}
+                                    <div style={{ ...s.crewGrid, ...(isMobile ? { width: "100%", textAlign: "left" } : {}) }}>
                                         {details.director && (
                                             <div style={s.crewItem}>
                                                 <span style={s.crewLabel}>Director</span>

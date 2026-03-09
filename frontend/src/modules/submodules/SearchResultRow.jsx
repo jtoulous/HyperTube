@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { searchApi } from "../../api/search";
 import { formatSize, formatDate } from "./utils";
 
@@ -10,6 +10,14 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
     const [hoverBtn, setHoverBtn] = useState(null);
     const [dlSuccess, setDlSuccess] = useState(false);
     const [dlLoading, setDlLoading] = useState(false);
+
+    const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+    useEffect(() => {
+        const onResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, []);
+    const isMobile = windowWidth < 620;
 
     const handleDownloadClick = async (title, magneturl, imdbid, torrenturl) => {
         if (dlLoading || dlSuccess) return;
@@ -64,9 +72,9 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
 
     return (
         <div style={{ ...styles.row, ...(isExpanded ? styles.rowExpanded : {}) }}>
-            <div style={styles.header} onClick={handleToggle}>
-                <div style={styles.titleArea}>
-                    <span style={styles.title}>{result.title}</span>
+            <div style={{ ...styles.header, ...(isMobile ? { flexDirection: "column", alignItems: "flex-start", gap: 6 } : {}) }} onClick={handleToggle}>
+                <div style={{ ...styles.titleArea, ...(isMobile ? { width: "100%" } : {}) }}>
+                    <span style={{ ...styles.title, ...(isMobile ? { whiteSpace: "normal", wordBreak: "break-word" } : {}) }}>{result.title}</span>
                     {result.match_quality === "exact" && (
                         <span style={styles.matchExactBadge}>✓ Match</span>
                     )}
@@ -81,12 +89,12 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                         <span style={styles.guessedBadge}>Guessed</span>
                     )}
                 </div>
-                <div style={styles.meta}>
+                <div style={{ ...styles.meta, ...(isMobile ? { flexWrap: "wrap", gap: 8, width: "100%" } : {}) }}>
                     <span style={{ ...styles.metaItem, ...styles.seeders }} title="Seeders">▲ {result.seeders}</span>
                     <span style={{ ...styles.metaItem, ...styles.peers }} title="Peers">▼ {result.peers}</span>
                     <span style={styles.metaItem}>{formatSize(result.size)}</span>
-                    <span style={{ ...styles.metaItem, ...styles.indexer }}>{result.indexer || "—"}</span>
-                    <span style={{ ...styles.chevron, ...(isExpanded ? styles.chevronOpen : {}) }}>❯</span>
+                    {!isMobile && <span style={{ ...styles.metaItem, ...styles.indexer }}>{result.indexer || "—"}</span>}
+                    <span style={{ ...styles.chevron, ...(isExpanded ? styles.chevronOpen : {}), ...(isMobile ? { marginLeft: "auto" } : {}) }}>❯</span>
                 </div>
             </div>
 
@@ -138,9 +146,9 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                     )}
 
                     {effectiveImdbId && mediaDetails && !loadingDetails && (
-                        <div style={styles.mediaDetails}>
+                        <div style={{ ...styles.mediaDetails, ...(isMobile ? { flexDirection: "column" } : {}) }}>
                             {mediaDetails.poster && mediaDetails.poster !== "N/A" && (
-                                <img style={styles.poster} src={mediaDetails.poster} alt={mediaDetails.title} />
+                                <img style={{ ...styles.poster, ...(isMobile ? { width: "100%", maxHeight: 180, objectFit: "contain", alignSelf: "flex-start" } : {}) }} src={mediaDetails.poster} alt={mediaDetails.title} />
                             )}
                             <div style={styles.mediaInfo}>
                                 <div style={styles.mediaTitleRow}>
