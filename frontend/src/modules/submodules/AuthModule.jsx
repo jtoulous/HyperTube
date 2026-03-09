@@ -57,6 +57,10 @@ export default function AuthModule() {
             setError("Password must be at least 8 characters");
             return;
         }
+        if (!/\d/.test(regPassword) || !/[A-Z]/.test(regPassword) || !/[a-z]/.test(regPassword)) {
+            setError("Password must contain at least one uppercase, one lowercase and one number");
+            return;
+        }
         try {
             const res = await authApi.register({
                 email: regEmail,

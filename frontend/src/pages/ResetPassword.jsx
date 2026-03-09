@@ -32,6 +32,10 @@ export default function ResetPassword() {
             setError("Password must be at least 8 characters");
             return;
         }
+        if (!/\d/.test(password) || !/[A-Z]/.test(password) || !/[a-z]/.test(password)) {
+            setError("Password must contain at least one uppercase, one lowercase and one number");
+            return;
+        }
         if (password !== confirm) {
             setError("Passwords do not match");
             return;
