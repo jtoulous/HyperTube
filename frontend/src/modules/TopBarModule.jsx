@@ -64,6 +64,10 @@ export default function TopBarModule() {
 
 const styles = {
     topBar: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
@@ -73,6 +77,7 @@ const styles = {
         fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         height: "60px",
         borderBottom: "1px solid #21262d",
+        zIndex: 1000,
     },
     iconWrapper: {
         cursor: "pointer",

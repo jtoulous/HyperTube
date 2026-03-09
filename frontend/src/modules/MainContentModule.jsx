@@ -464,6 +464,11 @@ export default function MainContentModule() {
         ? { ...s.sidebar, ...s.sidebarMobile, ...(sidebarOpen ? {} : s.sidebarMobileClosed) }
         : { ...s.sidebar, ...(sidebarOpen ? s.sidebarOpen : s.sidebarClosed) };
 
+    /*  Computed tab content area style — adjust margin-left based on sidebar state on desktop  */
+    const tabContentAreaStyle = isMobile
+        ? s.tabContentArea
+        : { ...s.tabContentArea, marginLeft: sidebarOpen ? 220 : 0 };
+
     return (
         <div style={{ ...s.container, ...(isMobile ? s.containerMobile : {}) }}>
             {isMobile && sidebarOpen && <div style={s.sidebarOverlay} onClick={() => setSidebarOpen(false)} />}
@@ -621,7 +626,7 @@ export default function MainContentModule() {
                 )}
             </aside>
 
-            <div style={s.tabContentArea}>
+            <div style={tabContentAreaStyle}>
                 {/* PlayerViewModule: replaces tab content when a file is playing */}
                 {playerFile && playerImdbId ? (
                     <PlayerViewModule
@@ -911,12 +916,17 @@ const s = {
         flexDirection: "row",
         background: "#161b22",
         overflow: "hidden",
+        marginTop: "60px",
     },
     containerMobile: {
         flexDirection: "column",
         position: "relative",
     },
     sidebar: {
+        position: "fixed",
+        left: 0,
+        top: "60px",
+        height: "calc(100vh - 60px)",
         width: 220,
         minWidth: 220,
         background: "#0d1117",
@@ -928,16 +938,19 @@ const s = {
         scrollbarWidth: "thin",
         scrollbarColor: "#30363d transparent",
         transition: "width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1)",
+        zIndex: 100,
     },
     sidebarOpen: {
         width: 220,
         minWidth: 220,
+        marginLeft: 0,
     },
     sidebarClosed: {
         width: 0,
         minWidth: 0,
         overflow: "hidden",
         borderRight: "none",
+        marginLeft: "-220px",
     },
     sidebarMobile: {
         position: "fixed",
@@ -1171,6 +1184,7 @@ const s = {
         flexDirection: "column",
         overflowY: "auto",
         minWidth: 0,
+        transition: "margin-left 0.25s cubic-bezier(0.4,0,0.2,1)",
     },
     searchTab: {
         minHeight: 220,
