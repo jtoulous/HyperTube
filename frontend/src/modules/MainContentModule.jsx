@@ -62,6 +62,7 @@ export default function MainContentModule() {
     const [browseGenre, setBrowseGenre] = useState("");
     const [browsePeriod, setBrowsePeriod] = useState("all");
     const [browseSortBy, setBrowseSortBy] = useState("popular");
+    const [cleanupRunning, setCleanupRunning] = useState(false);
 
     const [libraryMovies, setLibraryMovies] = useState([]);
     const [libraryLoading, setLibraryLoading] = useState(false);
@@ -374,6 +375,19 @@ export default function MainContentModule() {
         try { await downloadsApi.reannounceTorrent(hash); refreshModule(); } catch (e) { console.error(e); }
     }, [refreshModule]);
 
+    const handleForceCleanup = useCallback(async () => {
+        if (cleanupRunning) return;
+        setCleanupRunning(true);
+        try {
+            await downloadsApi.forceCleanup();
+            await loadFilms();
+        } catch (e) {
+            console.error("Cleanup failed:", e);
+        } finally {
+            setCleanupRunning(false);
+        }
+    }, [cleanupRunning, loadFilms]);
+
     /*  Computed sidebar style  */
     const sidebarStyle = isMobile
         ? { ...s.sidebar, ...s.sidebarMobile, ...(sidebarOpen ? {} : s.sidebarMobileClosed) }
@@ -430,6 +444,23 @@ export default function MainContentModule() {
                         </button>
                     )}
                 </div>
+
+                {currentTab === "library" && isLogged && (
+                    <>
+                        <div style={s.divider} />
+                        <div style={s.section}>
+                            <div style={s.sectionLabel}>Maintenance</div>
+                            <button
+                                style={{ ...s.cleanupBtn, ...(cleanupRunning ? s.cleanupBtnDisabled : {}) }}
+                                onClick={handleForceCleanup}
+                                disabled={cleanupRunning}
+                            >
+                                {cleanupRunning ? "Cleaning up…" : "Force Cleanup"}
+                            </button>
+                            <span style={s.cleanupHint}>Force removing films not watched by anyone in 30+ days</span>
+                        </div>
+                    </>
+                )}
 
                 {(currentTab === "library" || (currentTab === "browse" && !hasSearched)) && (
                     <>
@@ -909,6 +940,28 @@ const s = {
     sortOption: {
         background: "#0d1117",
         color: "#c9d1d9",
+    },
+    cleanupBtn: {
+        width: "100%",
+        height: 34,
+        background: "#da3633",
+        color: "#fff",
+        border: "none",
+        borderRadius: 6,
+        fontSize: "0.8rem",
+        fontWeight: 600,
+        cursor: "pointer",
+        fontFamily: "'Inter', sans-serif",
+    },
+    cleanupBtnDisabled: {
+        opacity: 0.5,
+        cursor: "not-allowed",
+    },
+    cleanupHint: {
+        fontSize: "0.68rem",
+        color: "#484f58",
+        lineHeight: 1.3,
+        fontFamily: "'Inter', sans-serif",
     },
     tabContentArea: {
         flex: 1,

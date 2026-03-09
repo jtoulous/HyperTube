@@ -21,4 +21,6 @@ export const downloadsApi = {
     deleteTorrent:     (hash) => api.delete(`/downloads/torrent/${hash}`),
     recheckTorrent:    (hash) => api.post(`/downloads/torrent/${hash}/recheck`),
     reannounceTorrent: (hash) => api.post(`/downloads/torrent/${hash}/reannounce`),
+
+    forceCleanup: () => api.post("/downloads/cleanup"),
 };

@@ -260,6 +260,20 @@ async def recheck_torrent(
     return {"ok": True}
 
 
+@router.post("/cleanup")
+async def force_cleanup(
+    current_user: User = Depends(get_current_user),
+):
+    """Force-run the stale film cleanup (removes films unwatched for 30+ days)."""
+    from app.services.cleanup_service import cleanup_stale_films
+    try:
+        await cleanup_stale_films()
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Cleanup failed: {e}")
+    return {"ok": True}
+
+
 @router.post("/torrent/{torrent_hash}/reannounce")
 async def reannounce_torrent(
     torrent_hash: str,

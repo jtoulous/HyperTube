@@ -106,6 +106,24 @@ class DownloadService:
         except Exception as e:
             logger.warning(f"Failed to register film {effective_id} at download start: {e}")
 
+        # Add the uploader to watched_films so cleanup tracks their interest.
+        # Uses ON CONFLICT DO NOTHING to never overwrite existing playback progress.
+        try:
+            from app.models.film import WatchedFilm
+            from sqlalchemy.dialects.postgresql import insert as pg_insert
+            stmt = pg_insert(WatchedFilm).values(
+                user_id=user_id,
+                imdb_id=effective_id,
+                stopped_at=0,
+                is_completed=False,
+            ).on_conflict_do_nothing(
+                index_elements=["user_id", "imdb_id"]
+            )
+            await session.execute(stmt)
+            logger.info(f"Registered watched_films entry for uploader {user_id} → {effective_id}")
+        except Exception as e:
+            logger.warning(f"Failed to insert watched_films for uploader: {e}")
+
         return download
 
     def _get_hash_from_magnet(self, magnet_link: str) -> str | None:
