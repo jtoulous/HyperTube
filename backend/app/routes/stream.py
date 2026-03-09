@@ -5,7 +5,9 @@ import json
 import asyncio
 import zipfile
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Depends
+from app.models import User
+from app.security import get_current_user
 from fastapi.responses import StreamingResponse, JSONResponse, Response
 import httpx
 import logging
@@ -63,7 +65,7 @@ async def _run_ffprobe(filepath: str) -> dict:
     return json.loads(stdout)
 
 @router.get("/info/{filename:path}")
-async def get_file_info(filename: str):
+async def get_file_info(filename: str, current_user: User = Depends(get_current_user)):
     """
     Return total duration (seconds) and the list of audio tracks for a file.
     The player uses this to populate the language selector and the seek bar.
@@ -122,6 +124,7 @@ async def get_file_info(filename: str):
 @router.get("/subtitles/{filename:path}")
 async def get_subtitles(
     filename: str,
+    current_user: User = Depends(get_current_user),
     track: int = Query(default=0, description="Subtitle track index (0-based among subtitle streams)"),
 ):
     """Extract an embedded subtitle track as WebVTT."""
@@ -195,6 +198,7 @@ def _extract_subtitle_from_zip(zip_bytes: bytes) -> tuple[str, str]:
 
 @router.get("/online-subtitles/search")
 async def search_online_subtitles(
+    current_user: User = Depends(get_current_user),
     imdb_id: str = Query(..., description="IMDB ID e.g. tt1234567"),
     languages: str = Query(default="en", description="Comma-separated language codes e.g. en,fr,es"),
 ):
@@ -243,6 +247,7 @@ async def search_online_subtitles(
 
 @router.get("/online-subtitles/download")
 async def download_online_subtitle(
+    current_user: User = Depends(get_current_user),
     url: str = Query(..., description="Subdl relative URL from search results"),
 ):
     """
@@ -338,6 +343,7 @@ async def _probe_keyframe_time(filepath: str, target: float) -> float:
 @router.get("/keyframe-time/{filename:path}")
 async def get_keyframe_time(
     filename: str,
+    current_user: User = Depends(get_current_user),
     start: float = Query(default=0.0, description="Requested seek time in seconds"),
 ):
     """
@@ -356,6 +362,7 @@ async def stream_video(
         default="original",
         description="Target resolution height: 360 | 480 | 720 | original",
     ),
+    current_user: User = Depends(get_current_user),
     audio_track: int = Query(default=0, description="Audio track index (0-based)"),
     start: float = Query(default=0.0, description="Seek start time in seconds"),
 ):

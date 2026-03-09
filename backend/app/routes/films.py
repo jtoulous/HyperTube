@@ -20,6 +20,7 @@ VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".m4v", ".webm"}
 
 @router.get("", response_model=list[FilmResponse])
 async def list_films(
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """List all films on the server (downloading + completed) with can_watch info."""
@@ -50,6 +51,7 @@ async def list_films(
 @router.get("/{imdb_id}/files")
 async def get_film_files(
     imdb_id: str,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """
@@ -156,6 +158,7 @@ async def unmark_film_watched(
 @router.get("/{imdb_id}/comments")
 async def get_comments(
     imdb_id: str,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """Get all comments for a film."""
