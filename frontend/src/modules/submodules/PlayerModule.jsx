@@ -83,11 +83,18 @@ function formatTime(sec) {
         : `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function authHeaders() {
+    const token = localStorage.getItem("token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 function buildUrl(filename, resolution, audioTrack, start) {
+    const token = localStorage.getItem("token");
     const p = new URLSearchParams({
         resolution,
         audio_track: audioTrack,
         start: start.toFixed(3),
+        ...(token ? { token } : {}),
     });
     return `/api/v1/stream/${filename}?${p}`;
 }
@@ -177,7 +184,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
 
         // For copy mode, probe actual keyframe time; for start=0 just use 0
         if (resumeTime > 0) {
-            fetch(`/api/v1/stream/keyframe-time/${filename}?start=${resumeTime}`)
+            fetch(`/api/v1/stream/keyframe-time/${filename}?start=${resumeTime}`, { headers: authHeaders() })
                 .then(r => r.json())
                 .then(data => setTimeOffset(data.actual_start ?? resumeTime))
                 .catch(() => setTimeOffset(resumeTime));
@@ -185,7 +192,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
             setTimeOffset(0);
         }
 
-        fetch(`/api/v1/stream/info/${filename}`)
+        fetch(`/api/v1/stream/info/${filename}`, { headers: authHeaders() })
             .then(r => r.json())
             .then(data => {
                 setTotalDuration(data.duration || 0);
@@ -384,7 +391,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                 let raw = vttCacheRef.current.get(sub.src);
                 if (!raw) {
                     try {
-                        const resp = await fetch(sub.src);
+                        const resp = await fetch(sub.src, { headers: sub.src.startsWith("blob:") ? {} : authHeaders() });
                         raw = await resp.text();
                         vttCacheRef.current.set(sub.src, raw);
                     } catch (e) {
@@ -448,7 +455,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                 try {
                     const searchLangs = langMatches(userLang, "en") ? "en" : `${userLang},en`;
                     const resp = await fetch(
-                        `/api/v1/stream/online-subtitles/search?imdb_id=${encodeURIComponent(imdbId)}&languages=${searchLangs}`
+                        `/api/v1/stream/online-subtitles/search?imdb_id=${encodeURIComponent(imdbId)}&languages=${searchLangs}`,
+                        { headers: authHeaders() }
                     );
                     const data = await resp.json();
                     const results = data.results || [];
@@ -461,7 +469,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
 
                     if (target) {
                         const dlResp = await fetch(
-                            `/api/v1/stream/online-subtitles/download?url=${encodeURIComponent(target.url)}`
+                            `/api/v1/stream/online-subtitles/download?url=${encodeURIComponent(target.url)}`,
+                            { headers: authHeaders() }
                         );
                         if (dlResp.ok) {
                             const blob = await dlResp.blob();
@@ -485,7 +494,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         if (!imdbId || onlineSearchDone) return;
         setOnlineSearching(true);
         try {
-            const resp = await fetch(`/api/v1/stream/online-subtitles/search?imdb_id=${encodeURIComponent(imdbId)}&languages=en,fr,es,de,pt,it,ja,ko,zh,ar,ru`);
+            const resp = await fetch(`/api/v1/stream/online-subtitles/search?imdb_id=${encodeURIComponent(imdbId)}&languages=en,fr,es,de,pt,it,ja,ko,zh,ar,ru`, { headers: authHeaders() });
             const data = await resp.json();
             setOnlineResults(data.results || []);
         } catch {
@@ -500,7 +509,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         if (downloadingFileId) return;
         setDownloadingFileId(result.url);
         try {
-            const resp = await fetch(`/api/v1/stream/online-subtitles/download?url=${encodeURIComponent(result.url)}`);
+            const resp = await fetch(`/api/v1/stream/online-subtitles/download?url=${encodeURIComponent(result.url)}`, { headers: authHeaders() });
             if (!resp.ok) throw new Error("Download failed");
             const blob = await resp.blob();
             const blobUrl = URL.createObjectURL(blob);
@@ -560,7 +569,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         let actualOffset = seekTarget;
         if (effectiveRes === "original" && seekTarget > 0) {
             try {
-                const resp = await fetch(`/api/v1/stream/keyframe-time/${filename}?start=${seekTarget}`);
+                const resp = await fetch(`/api/v1/stream/keyframe-time/${filename}?start=${seekTarget}`, { headers: authHeaders() });
                 const data = await resp.json();
                 if (data.actual_start != null) actualOffset = data.actual_start;
             } catch {}
