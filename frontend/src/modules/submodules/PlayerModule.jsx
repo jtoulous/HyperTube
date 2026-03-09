@@ -132,6 +132,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     const [showLangMenu,    setShowLangMenu]     = useState(false);
     const [showSubMenu,     setShowSubMenu]      = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
+    const [isSeeking,       setIsSeeking]       = useState(false);
+    const [seekPreviewPct,  setSeekPreviewPct]  = useState(0);
 
     // Subtitle state
     const [subtitleTracks,    setSubtitleTracks]    = useState([]);
@@ -151,6 +153,8 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     const absTime = timeOffset + currentTime;
     const progress = totalDuration > 0 ? (absTime / totalDuration) * 100 : 0;
     const bufferProgress = totalDuration > 0 ? ((timeOffset + buffered) / totalDuration) * 100 : 0;
+    const displayProgress = isSeeking ? seekPreviewPct : progress;
+    const displayTime     = isSeeking ? (seekPreviewPct / 100 * totalDuration) : absTime;
 
     const streamUrl = buildUrl(filename, resolution, audioTrack, startParam);
 
@@ -576,13 +580,54 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         reloadStream({ time });
     }, [totalDuration, reloadStream]);
 
-    const handleSeekClick = (e) => {
+    const handleSeekStart = (e) => {
+        if (totalDuration === 0) return;
+        e.preventDefault();
         const bar = seekRef.current;
-        if (!bar || totalDuration === 0) return;
+        if (!bar) return;
         const rect = bar.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        seekToAbsolute(ratio * totalDuration);
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        setSeekPreviewPct(ratio * 100);
+        setIsSeeking(true);
     };
+
+    // Drag tracking: mousemove / mouseup + touch equivalents
+    useEffect(() => {
+        if (!isSeeking) return;
+
+        const onMove = (e) => {
+            e.preventDefault();
+            const bar = seekRef.current;
+            if (!bar) return;
+            const rect = bar.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            setSeekPreviewPct(ratio * 100);
+        };
+
+        const onEnd = (e) => {
+            const bar = seekRef.current;
+            if (!bar || totalDuration === 0) { setIsSeeking(false); return; }
+            const rect = bar.getBoundingClientRect();
+            const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            setIsSeeking(false);
+            seekToAbsolute(ratio * totalDuration);
+        };
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onEnd);
+        document.addEventListener("touchmove", onMove, { passive: false });
+        document.addEventListener("touchend", onEnd);
+
+        return () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onEnd);
+            document.removeEventListener("touchmove", onMove);
+            document.removeEventListener("touchend", onEnd);
+        };
+    }, [isSeeking, totalDuration, seekToAbsolute]);
 
     const handleVolume = (e) => {
         const v = videoRef.current;
@@ -615,7 +660,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
             ref={containerRef}
             style={styles.container}
             onMouseMove={showControls}
-            onMouseLeave={() => { if (playing) setControlsVisible(false); }}
+            onMouseLeave={() => { if (playing && !isSeeking) setControlsVisible(false); }}
         >
             <video
                 ref={videoRef}
@@ -663,10 +708,10 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
             <div style={{ ...styles.controls, opacity: controlsVisible ? 1 : 0, pointerEvents: controlsVisible ? "auto" : "none" }}>
 
                 {/* Seek bar */}
-                <div ref={seekRef} style={styles.seekBar} onClick={handleSeekClick}>
+                <div ref={seekRef} style={styles.seekBar} onMouseDown={handleSeekStart} onTouchStart={handleSeekStart}>
                     <div style={{ ...styles.seekBuffered, width: `${bufferProgress}%` }} />
-                    <div style={{ ...styles.seekProgress, width: `${progress}%` }} />
-                    <div style={{ ...styles.seekThumb,    left: `${progress}%` }} />
+                    <div style={{ ...styles.seekProgress, width: `${displayProgress}%` }} />
+                    <div style={{ ...styles.seekThumb,    left: `${displayProgress}%` }} />
                 </div>
 
                 <div style={styles.controlsRow}>
@@ -687,7 +732,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                         />
 
                         <span style={styles.timeLabel}>
-                            {formatTime(absTime)} / {formatTime(totalDuration)}
+                            {formatTime(displayTime)} / {formatTime(totalDuration)}
                         </span>
                     </div>
 
