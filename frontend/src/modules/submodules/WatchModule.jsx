@@ -82,8 +82,8 @@ function TorrentRow({ torrent, onPause, onResume, onDelete, onRecheck, onReannou
     );
 }
 
-/* Main modal */
-export default function WatchModal({
+/* Main Module */
+export default function WatchModule({
     file, title, allFiles, onFileChange, onClose, onTimeReport, initialTime = 0,
     torrents = [], onPause, onResume, onDelete, onRecheck, onReannounce, onRefresh,
     imdbId, userLang,
@@ -117,7 +117,7 @@ export default function WatchModal({
 
     return (
         <div style={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ ...styles.modalWrapper, ...(isPlayerMode ? {} : styles.modalNarrow) }}>
+            <div style={{ ...styles.ModuleWrapper, ...(isPlayerMode ? {} : styles.ModuleNarrow) }}>
 
                 {/* Header */}
                 <div style={styles.header}>
@@ -235,12 +235,12 @@ const styles = {
         background: "rgba(0,0,0,.85)", display: "flex",
         alignItems: "center", justifyContent: "center",
     },
-    modalWrapper: {
+    ModuleWrapper: {
         background: "#0d1117", borderRadius: 12, width: "90vw", maxWidth: 1100,
         maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column",
         border: "1px solid #30363d",
     },
-    modalNarrow: { maxWidth: 600 },
+    ModuleNarrow: { maxWidth: 600 },
     header: {
         display: "flex", alignItems: "center", padding: "14px 18px",
         borderBottom: "1px solid #21262d", gap: 10,

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { downloadsApi } from "../../api/downloads";
 import { GlobalState } from "../../State";
-import WatchModal from "./WatchModal";
+import WatchModule from "./WatchModule";
 import { formatSize } from "./utils";
 
 const TERMINAL_STATUSES = new Set(["completed", "error"]);
@@ -98,7 +98,7 @@ export default function DownloadItem({ download, onMarkWatched }) {
     return (
         <>
             {playerFile && (
-                <WatchModal
+                <WatchModule
                     file={playerFile}
                     title={displayProgress.title}
                     allFiles={allFiles}
