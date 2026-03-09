@@ -74,7 +74,7 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
                         <span style={styles.matchDiffBadge}>✗ Different</span>
                     )}
                     {result.match_quality === "unknown" && !effectiveImdbId && (
-                        <span style={styles.noMatchBadge}>? No ID</span>
+                        <span style={styles.noMatchBadge}>No ID found/guessed</span>
                     )}
                     {result.imdbid && <span style={styles.imdbBadge}>IMDb</span>}
                     {!result.imdbid && result.guessed_imdbid && (
