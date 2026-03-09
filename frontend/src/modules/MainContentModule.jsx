@@ -7,7 +7,7 @@ import { filmsApi } from "../api/films";
 import MovieCard from "./submodules/MovieCard";
 import BrowseView from "./submodules/BrowseView";
 import SearchResultRow from "./submodules/SearchResultRow";
-import WatchModal from "./submodules/WatchModal";
+import WatchModule from "./submodules/WatchModule";
 import PlayerViewModule from "./PlayerViewModule";
 
 const BROWSE_GENRES = ["", "Action", "Comedy", "Drama", "Horror", "Thriller", "Sci-Fi", "Animation", "Romance", "Crime", "Adventure", "Documentary", "Family"];
@@ -18,7 +18,7 @@ const BROWSE_PERIODS = [
     { key: "day",   label: "Today" },
 ];
 const BROWSE_SORTS = [
-    { key: "seeders", label: "Most Seeded" },
+    { key: "popular", label: "Most Popular" },
     { key: "rating",  label: "Top Rated" },
     { key: "year",    label: "Newest" },
     { key: "name",    label: "A-Z" },
@@ -61,7 +61,7 @@ export default function MainContentModule() {
 
     const [browseGenre, setBrowseGenre] = useState("");
     const [browsePeriod, setBrowsePeriod] = useState("all");
-    const [browseSortBy, setBrowseSortBy] = useState("seeders");
+    const [browseSortBy, setBrowseSortBy] = useState("popular");
 
     const [libraryMovies, setLibraryMovies] = useState([]);
     const [libraryLoading, setLibraryLoading] = useState(false);
@@ -128,7 +128,7 @@ export default function MainContentModule() {
     /* Load films once on mount so filmStatusMap is available on all tabs */
     useEffect(() => { loadFilms(); }, [loadFilms]);
 
-    /* While on the library tab or while the modal is open, refresh every 5 s so progress stays live */
+    /* While on the library tab or while the Module is open, refresh every 5 s so progress stays live */
     useEffect(() => {
         if (currentTab !== "library" && !playerMovie) return;
         loadFilms();
@@ -298,7 +298,7 @@ export default function MainContentModule() {
         }
     }, [isLogged, playerImdbId]);
 
-    /** Open the film detail / player modal from the library */
+    /** Open the film detail / player Module from the library */
     const handleWatchFilm = useCallback(async (movie) => {
         if (!movie?.imdbid) return;
         setPlayerMovie(movie);
@@ -319,8 +319,8 @@ export default function MainContentModule() {
         }
     }, []);
 
-    /** Reload torrents + files for the currently open modal */
-    const refreshModal = useCallback(async () => {
+    /** Reload torrents + files for the currently open Module */
+    const refreshModule = useCallback(async () => {
         if (!playerImdbId) return;
         try {
             const [filesRes, torrentsRes] = await Promise.all([
@@ -334,13 +334,13 @@ export default function MainContentModule() {
         loadFilms();
     }, [playerImdbId, loadFilms]);
 
-    /** Per-torrent control handlers — accept hash from WatchModal */
+    /** Per-torrent control handlers — accept hash from WatchModule */
     const handleTorrentPause = useCallback(async (hash) => {
-        try { await downloadsApi.pauseTorrent(hash); loadFilms(); refreshModal(); } catch (e) { console.error(e); }
-    }, [loadFilms, refreshModal]);
+        try { await downloadsApi.pauseTorrent(hash); loadFilms(); refreshModule(); } catch (e) { console.error(e); }
+    }, [loadFilms, refreshModule]);
     const handleTorrentResume = useCallback(async (hash) => {
-        try { await downloadsApi.resumeTorrent(hash); loadFilms(); refreshModal(); } catch (e) { console.error(e); }
-    }, [loadFilms, refreshModal]);
+        try { await downloadsApi.resumeTorrent(hash); loadFilms(); refreshModule(); } catch (e) { console.error(e); }
+    }, [loadFilms, refreshModule]);
     const handleTorrentDelete = useCallback(async (hash) => {
         if (!confirm("Delete this torrent and all its data?")) return;
         try {
@@ -353,7 +353,7 @@ export default function MainContentModule() {
                     const torrentsRes = await filmsApi.getFilmTorrents(playerImdbId);
                     const remaining = torrentsRes.data?.torrents || [];
                     if (remaining.length === 0) {
-                        // Film was deleted server-side — close modal
+                        // Film was deleted server-side — close Module
                         setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
                     } else {
                         setPlayerTorrents(remaining);
@@ -361,18 +361,18 @@ export default function MainContentModule() {
                         setPlayerAllFiles(filesRes.data?.files || []);
                     }
                 } catch {
-                    // Film no longer exists on server — close modal
+                    // Film no longer exists on server — close Module
                     setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
                 }
             }
         } catch (e) { console.error(e); }
     }, [loadFilms, playerImdbId]);
     const handleTorrentRecheck = useCallback(async (hash) => {
-        try { await downloadsApi.recheckTorrent(hash); refreshModal(); } catch (e) { console.error(e); }
-    }, [refreshModal]);
+        try { await downloadsApi.recheckTorrent(hash); refreshModule(); } catch (e) { console.error(e); }
+    }, [refreshModule]);
     const handleTorrentReannounce = useCallback(async (hash) => {
-        try { await downloadsApi.reannounceTorrent(hash); refreshModal(); } catch (e) { console.error(e); }
-    }, [refreshModal]);
+        try { await downloadsApi.reannounceTorrent(hash); refreshModule(); } catch (e) { console.error(e); }
+    }, [refreshModule]);
 
     /*  Computed sidebar style  */
     const sidebarStyle = isMobile
@@ -654,9 +654,9 @@ export default function MainContentModule() {
                 ) : null}
             </div>
 
-            {/* WatchModal overlay: torrent controls + file picker (intermediate between library cards and player) */}
+            {/* WatchModule overlay: torrent controls + file picker (intermediate between library cards and player) */}
             {playerMovie && !playerFile && (
-                <WatchModal
+                <WatchModule
                     file={playerFile}
                     title={playerTitle}
                     allFiles={playerAllFiles}
@@ -676,7 +676,7 @@ export default function MainContentModule() {
                     onDelete={handleTorrentDelete}
                     onRecheck={handleTorrentRecheck}
                     onReannounce={handleTorrentReannounce}
-                    onRefresh={refreshModal}
+                    onRefresh={refreshModule}
                 />
             )}
         </div>
