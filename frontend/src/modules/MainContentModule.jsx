@@ -12,16 +12,16 @@ import PlayerViewModule from "./PlayerViewModule";
 
 const BROWSE_GENRES = ["", "Action", "Comedy", "Drama", "Horror", "Thriller", "Sci-Fi", "Animation", "Romance", "Crime", "Adventure", "Documentary", "Family"];
 const BROWSE_PERIODS = [
-    { key: "all",   label: "All Time" },
+    { key: "all", label: "All Time" },
     { key: "month", label: "This Month" },
-    { key: "week",  label: "This Week" },
-    { key: "day",   label: "Today" },
+    { key: "week", label: "This Week" },
+    { key: "day", label: "Today" },
 ];
 const BROWSE_SORTS = [
     { key: "popular", label: "Most Popular" },
-    { key: "rating",  label: "Top Rated" },
-    { key: "year",    label: "Newest" },
-    { key: "name",    label: "A-Z" },
+    { key: "rating", label: "Top Rated" },
+    { key: "year", label: "Newest" },
+    { key: "name", label: "A-Z" },
 ];
 
 export default function MainContentModule() {
@@ -47,11 +47,11 @@ export default function MainContentModule() {
 
     const [tmdbResults, setTmdbResults] = useState([]);
     const [tmdbLoading, setTmdbLoading] = useState(false);
-    const [tmdbError,   setTmdbError]   = useState(null);
+    const [tmdbError, setTmdbError] = useState(null);
     const [hasSearched, setHasSearched] = useState(false);
 
-    const [torrentMode,    setTorrentMode]    = useState(false);
-    const [torrentTitle,   setTorrentTitle]   = useState("");
+    const [torrentMode, setTorrentMode] = useState(false);
+    const [torrentTitle, setTorrentTitle] = useState("");
     const [torrentResults, setTorrentResults] = useState([]);
     const [torrentLoading, setTorrentLoading] = useState(false);
     const [torrentError,   setTorrentError]   = useState(null);
@@ -62,11 +62,15 @@ export default function MainContentModule() {
     const [torrentFilterMinSeed, setTorrentFilterMinSeed] = useState(0);
     const [torrentFilterSeason,   setTorrentFilterSeason]  = useState("all");
     const [torrentFilterEpisode,  setTorrentFilterEpisode] = useState("all");
+    const [torrentVisible, setTorrentVisible] = useState(1000);
+    const torrentSentinelRef = useRef(null);
 
     const [browseGenre, setBrowseGenre] = useState("");
     const [browsePeriod, setBrowsePeriod] = useState("all");
     const [browseSortBy, setBrowseSortBy] = useState("popular");
     const [cleanupRunning, setCleanupRunning] = useState(false);
+    const [browseRating, setBrowseRating] = useState(0);
+    const [browseYear, setBrowseYear] = useState("");
 
     const [libraryMovies, setLibraryMovies] = useState([]);
     const [libraryLoading, setLibraryLoading] = useState(false);
@@ -149,7 +153,7 @@ export default function MainContentModule() {
         // Also refresh torrents on each library poll
         filmsApi.getFilmTorrents(playerMovie.imdbid)
             .then(res => setPlayerTorrents(res.data?.torrents || []))
-            .catch(() => {});
+            .catch(() => { });
     }, [libraryMovies]);
 
     /*  Filtered / sorted library movies  */
@@ -164,11 +168,12 @@ export default function MainContentModule() {
             const delta = deltas[browsePeriod];
             if (delta) movies = movies.filter(m => m.created_at && (now - new Date(m.created_at).getTime()) <= delta);
         }
+        if (browseRating > 0) movies = movies.filter(m => (parseFloat(m.imdb_rating) || 0) >= parseFloat(browseRating));
         if (browseSortBy === "rating") movies.sort((a, b) => (parseFloat(b.imdb_rating) || 0) - (parseFloat(a.imdb_rating) || 0));
         else if (browseSortBy === "year") movies.sort((a, b) => (b.year || "0").localeCompare(a.year || "0"));
         else if (browseSortBy === "name") movies.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
         return movies;
-    }, [libraryMovies, searchQuery, browseGenre, browseSortBy, browsePeriod]);
+    }, [libraryMovies, searchQuery, browseGenre, browseSortBy, browsePeriod, browseRating]);
 
     /** Season/episode options derived from backend-provided guessit fields */
     const torrentSEData = useMemo(() => {
@@ -485,6 +490,55 @@ export default function MainContentModule() {
 
                 <div style={s.divider} />
 
+
+                <div style={s.section}>
+                    <div style={s.sectionLabel}>Sort by</div>
+                    <select style={s.sortSelect} value={browseSortBy} onChange={e => setBrowseSortBy(e.target.value)}>
+                        {BROWSE_SORTS.map(opt => (
+                            <option key={opt.key} value={opt.key} style={s.sortOption}>{opt.label}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div style={s.section}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={s.sectionLabel}>Min Rating</div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: browseRating > 0 ? '#007BFF' : '#484f58' }}>
+                            {browseRating > 0 ? `★ ${parseFloat(browseRating).toFixed(1)}+` : 'All'}
+                        </div>
+                    </div>
+                    <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={browseRating}
+                        onChange={(e) => setBrowseRating(e.target.value)}
+                        style={s.slider}
+                    />
+                </div>
+
+                <div style={s.section}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={s.sectionLabel}>Year</div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: browseYear ? '#007BFF' : '#484f58' }}>
+                            {browseYear || 'Any'}
+                        </div>
+                    </div>
+                    <input
+                        type="number"
+                        min="1950"
+                        max={new Date().getFullYear()}
+                        placeholder="Any year"
+                        value={browseYear}
+                        onChange={(e) => setBrowseYear(e.target.value)}
+                        style={s.yearInput}
+                    />
+                </div>
+
+                <div style={s.divider} />
+
+
                 <div style={s.section}>
                     <div style={s.sectionLabel}>Search</div>
                     <input
@@ -563,18 +617,6 @@ export default function MainContentModule() {
                         </div>
 
                         <div style={s.divider} />
-                        <div style={s.section}>
-                            <div style={s.sectionLabel}>Sort by</div>
-                            <select
-                                style={s.sortSelect}
-                                value={browseSortBy}
-                                onChange={e => setBrowseSortBy(e.target.value)}
-                            >
-                                {BROWSE_SORTS.map(opt => (
-                                    <option key={opt.key} value={opt.key} style={s.sortOption}>{opt.label}</option>
-                                ))}
-                            </select>
-                        </div>
                     </>
                 )}
             </aside>
@@ -733,27 +775,29 @@ export default function MainContentModule() {
                             )}
                             {!torrentMode && !tmdbLoading && hasSearched && tmdbResults.length > 0 && (
                                 <div style={s.movieGrid}>
-                                    {tmdbResults.map((result, idx) => (
-                                        <MovieCard
-                                            key={result.tmdb_id || idx}
-                                            result={result}
-                                            isWatched={!!(result.imdbid && watchedImdbIds.get(result.imdbid)?.is_completed)}
-                                            watchProgress={result.imdbid ? watchedImdbIds.get(result.imdbid) : undefined}
-                                            filmStatus={result.imdbid ? filmStatusMap.get(result.imdbid) : undefined}
-                                            onDownload={handleDownload}
-                                            isLogged={isLogged}
-                                            onCardClick={handleMovieCardClick}
-                                        />
-                                    ))}
+                                    {tmdbResults
+                                        .filter(r => browseRating <= 0 || (parseFloat(r.imdb_rating) || parseFloat(r.vote_average) || 0) >= parseFloat(browseRating))
+                                        .map((result, idx) => (
+                                            <MovieCard
+                                                key={result.tmdb_id || idx}
+                                                result={result}
+                                                isWatched={!!(result.imdbid && watchedImdbIds.get(result.imdbid)?.is_completed)}
+                                                watchProgress={result.imdbid ? watchedImdbIds.get(result.imdbid) : undefined}
+                                                filmStatus={result.imdbid ? filmStatusMap.get(result.imdbid) : undefined}
+                                                onDownload={handleDownload}
+                                                isLogged={isLogged}
+                                                onCardClick={handleMovieCardClick}
+                                            />
+                                        ))}
                                 </div>
                             )}
-
-                            {/*  Browse view: shown when no search yet  */}
                             {!torrentMode && !tmdbLoading && !hasSearched && (
                                 <BrowseView
                                     genre={browseGenre}
                                     period={browsePeriod}
                                     sortBy={browseSortBy}
+                                    minRating={parseFloat(browseRating)}
+                                    year={browseYear}
                                     watchedImdbIds={watchedImdbIds}
                                     filmStatusMap={filmStatusMap}
                                     onDownload={handleDownload}
@@ -1108,6 +1152,18 @@ const s = {
         lineHeight: 1.3,
         fontFamily: "'Inter', sans-serif",
     },
+    yearInput: {
+        width: "100%",
+        padding: "6px 10px",
+        background: "#161b22",
+        border: "1px solid #30363d",
+        borderRadius: 6,
+        color: "#c9d1d9",
+        fontSize: "0.78rem",
+        fontFamily: "'Inter', sans-serif",
+        outline: "none",
+        boxSizing: "border-box",
+    },
     tabContentArea: {
         flex: 1,
         background: "#161b22",
@@ -1302,5 +1358,18 @@ const s = {
         fontSize: "0.76rem",
         color: "#484f58",
         fontWeight: 500,
+    },
+    slider: {
+        width: "100%",
+        height: 10,
+        background: "#161b22",
+        border: "1px solid #30363d",
+        borderRadius: 6,
+        color: "#c9d1d9",
+        fontSize: "0.78rem",
+        fontFamily: "'Inter', sans-serif",
+        cursor: "pointer",
+        outline: "none",
+        boxSizing: "border-box",
     },
 };

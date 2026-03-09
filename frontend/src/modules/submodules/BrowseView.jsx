@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { searchApi } from "../../api/search";
 import MovieCard from "./MovieCard";
 
-export default function BrowseView({ genre, period, sortBy, watchedImdbIds, filmStatusMap, onDownload, isLogged, onCardClick }) {
+export default function BrowseView({ genre, period, sortBy, minRating, year, watchedImdbIds, filmStatusMap, onDownload, isLogged, onCardClick }) {
     const [page,   setPage]   = useState(1);
     const [results,  setResults]  = useState([]);
     const [loading,  setLoading]  = useState(false);
@@ -12,8 +12,11 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
     const loadingRef = useRef(false);
     const hasMoreRef = useRef(true);
     const pageRef    = useRef(1);
-    const filtersRef = useRef({ genre, period, sortBy });
-    filtersRef.current = { genre, period, sortBy };
+    const filtersRef = useRef({ genre, period, sortBy, year, minRating });
+    filtersRef.current = { genre, period, sortBy, year, minRating };
+
+    /* Debounce timer for slider-type filters (minRating) */
+    const debounceRef = useRef(null);
 
     const sentinelRef = useRef(null);
     const observerRef = useRef(null);
@@ -22,15 +25,17 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
         if (loadingRef.current) return;
         loadingRef.current = true;
         setLoading(true);
-        const { genre: g, period: p, sortBy: s } = filtersRef.current;
+        const { genre: g, period: p, sortBy: s, year: y, minRating: mr } = filtersRef.current;
+        const params = {
+            genre:   g,
+            period:  p,
+            sort_by: s,
+            page:    pageNum,
+        };
+        if (y) params.year = y;
+        if (mr && mr > 0) params.min_rating = mr;
         try {
-            const res = await searchApi.browseMedia({
-                genre:   g,
-                period:  p,
-                sort_by: s,
-                page:    pageNum,
-                limit:   20,
-            });
+            const res = await searchApi.browseMedia(params);
             const data = res.data;
             setResults(prev => append ? [...prev, ...data.results] : data.results);
             hasMoreRef.current = data.has_more;
@@ -46,6 +51,7 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
         }
     }, []);
 
+    /* Reset and reload when discrete filters change */
     useEffect(() => {
         setInitialLoaded(false);
         setPage(1);
@@ -54,7 +60,22 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
         setHasMore(true);
         pageRef.current = 1;
         fetchPage(1, false);
-    }, [genre, period, sortBy, fetchPage]);
+    }, [genre, period, sortBy, year, fetchPage]);
+
+    /* Debounced reload for minRating slider (300ms) */
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            setInitialLoaded(false);
+            setPage(1);
+            setResults([]);
+            hasMoreRef.current = true;
+            setHasMore(true);
+            pageRef.current = 1;
+            fetchPage(1, false);
+        }, 300);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [minRating, fetchPage]);
 
     useEffect(() => {
         if (!initialLoaded) return;
@@ -65,11 +86,12 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
 
         const observer = new IntersectionObserver(async ([entry]) => {
             if (entry.isIntersecting && !loadingRef.current && hasMoreRef.current) {
-                await fetchPage(pageRef.current + 1, true);
-
-                // Continue loading if sentinel is still visible
-                if (sentinel.getBoundingClientRect().top < window.innerHeight) {
+                // Keep loading pages until sentinel is pushed out of view or no more data
+                while (hasMoreRef.current && !loadingRef.current) {
                     await fetchPage(pageRef.current + 1, true);
+                    // Check if sentinel is still visible
+                    const rect = sentinel.getBoundingClientRect();
+                    if (rect.top >= window.innerHeight + 200) break;
                 }
             }
         }, { rootMargin: "200px" });

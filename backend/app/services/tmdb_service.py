@@ -194,15 +194,28 @@ class TmdbService:
         page: int = 1,
         date_gte: Optional[str] = None,
         date_lte: Optional[str] = None,
-    ) -> list[dict]:
-        """Discover movies via TMDB /discover/movie."""
+        year: Optional[int] = None,
+        min_rating: Optional[float] = None,
+    ) -> dict:
+        """Discover movies via TMDB /discover/movie. Returns {results, total_pages}."""
         if not self._api_key:
-            return []
+            return {"results": [], "total_pages": 0}
+
+        # Adapt minimum vote count based on rating filter:
+        # High rating thresholds need a lower vote floor, otherwise TMDB
+        # returns almost nothing (few films have 30+ votes AND 9.0+ avg).
+        if min_rating and min_rating >= 8:
+            vote_floor = "5"
+        elif min_rating and min_rating >= 6:
+            vote_floor = "15"
+        else:
+            vote_floor = "30"
+
         params: dict = {
             "sort_by":         sort_by,
             "page":            page,
             "include_adult":   "false",
-            "vote_count.gte":  "30",
+            "vote_count.gte":  vote_floor,
         }
         if genre_id:
             params["with_genres"] = str(genre_id)
@@ -210,21 +223,26 @@ class TmdbService:
             params["primary_release_date.gte"] = date_gte
         if date_lte:
             params["primary_release_date.lte"] = date_lte
+        if year:
+            params["primary_release_year"] = str(year)
+        if min_rating and min_rating > 0:
+            params["vote_average.gte"] = str(min_rating)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await self._get(client, f"{TMDB_BASE}/discover/movie", params)
                 data = resp.json()
         except (httpx.RequestError, httpx.HTTPStatusError) as e:
             logger.error(f"TMDB discover error: {e}")
-            return []
+            return {"results": [], "total_pages": 0}
 
+        total_pages = data.get("total_pages", 1)
         results = []
         for item in data.get("results", []):
             brief = self._normalize_brief(item, "movie")
             if not brief["poster"]:
                 continue
             results.append(brief)
-        return results
+        return {"results": results, "total_pages": total_pages}
 
     async def get_by_imdb(self, imdb_id: str) -> Optional[dict]:
         """

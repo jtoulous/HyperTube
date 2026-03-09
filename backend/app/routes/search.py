@@ -115,10 +115,12 @@ async def search_tmdb(
 
 @router.get("/browse")
 async def browse_media(
-    genre:   str = Query("",        description="Genre filter e.g. Action"),
-    period:  str = Query("all",     description="day | week | month | all"),
-    sort_by: str = Query("seeders", description="seeders | rating | year | name"),
-    page:    int = Query(1, ge=1),
+    genre:      str   = Query("",        description="Genre filter e.g. Action"),
+    period:     str   = Query("all",     description="day | week | month | all"),
+    sort_by:    str   = Query("seeders", description="seeders | rating | year | name"),
+    page:       int   = Query(1, ge=1),
+    year:       int   = Query(None,      description="Exact release year e.g. 2024"),
+    min_rating: float = Query(None,      description="Minimum vote average (0-10)"),
 ):
     """
     Browse popular movies via TMDB Discover.
@@ -138,18 +140,23 @@ async def browse_media(
             date_gte = (now - delta).strftime("%Y-%m-%d")
             date_lte = now.strftime("%Y-%m-%d")
 
-    results = await tmdb.discover(
+    discover_data = await tmdb.discover(
         genre_id=genre_id,
         sort_by=tmdb_sort,
         page=page,
         date_gte=date_gte,
         date_lte=date_lte,
+        year=year,
+        min_rating=min_rating,
     )
+
+    results = discover_data["results"]
+    total_pages = discover_data["total_pages"]
 
     return {
         "results":  results,
         "page":     page,
-        "has_more": len(results) >= 18,   # TMDB returns up to 20/page; allow more pages
+        "has_more": page < total_pages,
     }
 
 
