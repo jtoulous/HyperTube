@@ -3,15 +3,19 @@ import { searchApi } from "../../api/search";
 import MovieCard from "./MovieCard";
 
 export default function BrowseView({ genre, period, sortBy, minRating, year, watchedImdbIds, filmStatusMap, onDownload, isLogged, onCardClick }) {
-    const [page,   setPage]   = useState(1);
     const [results,  setResults]  = useState([]);
     const [loading,  setLoading]  = useState(false);
     const [hasMore,  setHasMore]  = useState(true);
     const [initialLoaded, setInitialLoaded] = useState(false);
 
-    const loadingRef = useRef(false);
     const hasMoreRef = useRef(true);
     const pageRef    = useRef(1);
+
+    /* Generation counter: incremented on every filter reset.
+       Any in-flight or looping fetch from a previous generation is discarded. */
+    const genRef = useRef(0);
+
+    /* Store current filters in a ref for the infinite-scroll observer */
     const filtersRef = useRef({ genre, period, sortBy, year, minRating });
     filtersRef.current = { genre, period, sortBy, year, minRating };
 
@@ -21,61 +25,64 @@ export default function BrowseView({ genre, period, sortBy, minRating, year, wat
     const sentinelRef = useRef(null);
     const observerRef = useRef(null);
 
-    const fetchPage = useCallback(async (pageNum, append) => {
-        if (loadingRef.current) return;
-        loadingRef.current = true;
-        setLoading(true);
-        const { genre: g, period: p, sortBy: s, year: y, minRating: mr } = filtersRef.current;
+    const fetchPage = useCallback(async (pageNum, append, filters, gen) => {
+        const f = filters || filtersRef.current;
+        const myGen = gen ?? genRef.current;
+
         const params = {
-            genre:   g,
-            period:  p,
-            sort_by: s,
+            genre:   f.genre,
+            period:  f.period,
+            sort_by: f.sortBy,
             page:    pageNum,
         };
-        if (y) params.year = y;
-        if (mr && mr > 0) params.min_rating = mr;
+        if (f.year) params.year = f.year;
+        if (f.minRating && f.minRating > 0) params.min_rating = f.minRating;
+
+        setLoading(true);
         try {
             const res = await searchApi.browseMedia(params);
+            /* If a new reset happened while we were fetching, discard results */
+            if (myGen !== genRef.current) return;
             const data = res.data;
             setResults(prev => append ? [...prev, ...data.results] : data.results);
             hasMoreRef.current = data.has_more;
             pageRef.current = pageNum;
             setHasMore(data.has_more);
-            setPage(pageNum);
         } catch (err) {
+            if (myGen !== genRef.current) return;
             console.error("Browse error:", err);
         } finally {
-            loadingRef.current = false;
-            setLoading(false);
-            if (!append) setInitialLoaded(true);
+            if (myGen === genRef.current) {
+                setLoading(false);
+                if (!append) setInitialLoaded(true);
+            }
         }
     }, []);
 
-    /* Reset and reload when discrete filters change */
-    useEffect(() => {
+    /* Reset helper — bumps generation, clears state, fetches page 1 */
+    const resetAndFetch = useCallback((filters) => {
+        const newGen = ++genRef.current;
         setInitialLoaded(false);
-        setPage(1);
         setResults([]);
         hasMoreRef.current = true;
         setHasMore(true);
         pageRef.current = 1;
-        fetchPage(1, false);
-    }, [genre, period, sortBy, year, fetchPage]);
+        fetchPage(1, false, filters, newGen);
+    }, [fetchPage]);
+
+    /* Reset and reload when discrete filters change */
+    useEffect(() => {
+        resetAndFetch({ genre, period, sortBy, year, minRating });
+    }, [genre, period, sortBy, year, resetAndFetch]);
 
     /* Debounced reload for minRating slider (300ms) */
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            setInitialLoaded(false);
-            setPage(1);
-            setResults([]);
-            hasMoreRef.current = true;
-            setHasMore(true);
-            pageRef.current = 1;
-            fetchPage(1, false);
+            resetAndFetch({ genre, period, sortBy, year, minRating });
         }, 300);
         return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    }, [minRating, fetchPage]);
+    }, [minRating, resetAndFetch]);
 
     useEffect(() => {
         if (!initialLoaded) return;
@@ -85,14 +92,15 @@ export default function BrowseView({ genre, period, sortBy, minRating, year, wat
         observerRef.current?.disconnect();
 
         const observer = new IntersectionObserver(async ([entry]) => {
-            if (entry.isIntersecting && !loadingRef.current && hasMoreRef.current) {
-                // Keep loading pages until sentinel is pushed out of view or no more data
-                while (hasMoreRef.current && !loadingRef.current) {
-                    await fetchPage(pageRef.current + 1, true);
-                    // Check if sentinel is still visible
-                    const rect = sentinel.getBoundingClientRect();
-                    if (rect.top >= window.innerHeight + 200) break;
-                }
+            if (!entry.isIntersecting || !hasMoreRef.current) return;
+            const gen = genRef.current;
+            // Keep loading pages until sentinel is pushed out of view or no more data
+            while (hasMoreRef.current && gen === genRef.current) {
+                await fetchPage(pageRef.current + 1, true, null, gen);
+                if (gen !== genRef.current) break;
+                // Check if sentinel is still visible
+                const rect = sentinel.getBoundingClientRect();
+                if (rect.top >= window.innerHeight + 200) break;
             }
         }, { rootMargin: "200px" });
 

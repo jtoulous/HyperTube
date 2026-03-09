@@ -31,10 +31,11 @@ _TMDB_GENRE_IDS: dict[str, int] = {
 
 # Map frontend sort keys to TMDB sort_by values
 _TMDB_SORT_MAP: dict[str, str] = {
-    "seeders": "popularity.desc",
-    "rating":  "vote_average.desc",
-    "year":    "primary_release_date.desc",
-    "name":    "title.asc",
+    "popular":  "popularity.desc",
+    "seeders":  "popularity.desc",
+    "rating":   "vote_average.desc",
+    "year":     "primary_release_date.desc",
+    "name":     "original_title.asc",
 }
 
 
@@ -130,9 +131,10 @@ async def browse_media(
     tmdb_sort = _TMDB_SORT_MAP.get(sort_by, "popularity.desc")
 
     # Period to TMDB release date filter
+    # Skip if an exact year is specified — they would conflict
     date_gte: str | None = None
     date_lte: str | None = None
-    if period != "all":
+    if period != "all" and not year:
         deltas = {"day": timedelta(days=1), "week": timedelta(weeks=1), "month": timedelta(days=30)}
         delta = deltas.get(period)
         if delta:

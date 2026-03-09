@@ -201,13 +201,13 @@ class TmdbService:
         if not self._api_key:
             return {"results": [], "total_pages": 0}
 
-        # Adapt minimum vote count based on rating filter:
-        # High rating thresholds need a lower vote floor, otherwise TMDB
-        # returns almost nothing (few films have 30+ votes AND 9.0+ avg).
+        # Adapt minimum vote count based on rating filter.
+        # High ratings are rare among heavily-voted films, so we lower
+        # the floor progressively to avoid empty result sets.
         if min_rating and min_rating >= 8:
-            vote_floor = "5"
+            vote_floor = "1"
         elif min_rating and min_rating >= 6:
-            vote_floor = "15"
+            vote_floor = "10"
         else:
             vote_floor = "30"
 
