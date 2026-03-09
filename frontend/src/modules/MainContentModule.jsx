@@ -56,8 +56,10 @@ export default function MainContentModule() {
     const [torrentLoading, setTorrentLoading] = useState(false);
     const [torrentError,   setTorrentError]   = useState(null);
     const [expandedIndex,  setExpandedIndex]  = useState(null);
-    const [torrentVisible, setTorrentVisible] = useState(1000);
-    const torrentSentinelRef = useRef(null);
+
+    const [torrentSortBy,       setTorrentSortBy]       = useState("match_then_seeders");
+    const [torrentFilterMatch,  setTorrentFilterMatch]  = useState("all");
+    const [torrentFilterMinSeed, setTorrentFilterMinSeed] = useState(0);
 
     const [browseGenre, setBrowseGenre] = useState("");
     const [browsePeriod, setBrowsePeriod] = useState("all");
@@ -166,6 +168,43 @@ export default function MainContentModule() {
         return movies;
     }, [libraryMovies, searchQuery, browseGenre, browseSortBy, browsePeriod]);
 
+    const processedTorrentResults = useMemo(() => {
+        let items = [...torrentResults];
+
+        // Filter by match quality
+        if (torrentFilterMatch === "exact") {
+            items = items.filter(r => r.match_quality === "exact");
+        } else if (torrentFilterMatch === "different") {
+            items = items.filter(r => r.match_quality === "different");
+        } else if (torrentFilterMatch === "noid") {
+            items = items.filter(r => !r.imdbid && !r.guessed_imdbid);
+        } else if (torrentFilterMatch === "identified") {
+            items = items.filter(r => r.imdbid || r.guessed_imdbid);
+        }
+
+        // Filter by minimum seeders
+        if (torrentFilterMinSeed > 0) {
+            items = items.filter(r => (r.seeders || 0) >= torrentFilterMinSeed);
+        }
+
+        // Sort
+        const matchRank = (r) => (r.match_quality === "exact" ? 0 : 1);
+        switch (torrentSortBy) {
+            case "match_then_seeders":
+                items.sort((a, b) => matchRank(a) - matchRank(b) || (b.seeders || 0) - (a.seeders || 0));
+                break;
+            case "seeders_desc": items.sort((a, b) => (b.seeders || 0) - (a.seeders || 0)); break;
+            case "seeders_asc":  items.sort((a, b) => (a.seeders || 0) - (b.seeders || 0)); break;
+            case "size_desc":    items.sort((a, b) => (b.size || 0) - (a.size || 0)); break;
+            case "size_asc":     items.sort((a, b) => (a.size || 0) - (b.size || 0)); break;
+            case "date_desc":    items.sort((a, b) => new Date(b.pub_date || 0) - new Date(a.pub_date || 0)); break;
+            case "name_asc":     items.sort((a, b) => (a.title || "").localeCompare(b.title || "")); break;
+            default: break;
+        }
+
+        return items;
+    }, [torrentResults, torrentSortBy, torrentFilterMatch, torrentFilterMinSeed]);
+
     const filmStatusMap = useMemo(() => {
         const m = new Map();
         for (const f of libraryMovies) {
@@ -218,7 +257,9 @@ export default function MainContentModule() {
         setTorrentError(null);
         setTorrentResults([]);
         setExpandedIndex(null);
-        setTorrentVisible(20);
+        setTorrentSortBy("match_then_seeders");
+        setTorrentFilterMatch("all");
+        setTorrentFilterMinSeed(0);
         try {
             const res = await searchApi.search(title, tmdbId);
             setTorrentResults(res.data.results || []);
@@ -228,19 +269,6 @@ export default function MainContentModule() {
             setTorrentLoading(false);
         }
     }, []);
-
-    useEffect(() => {
-        if (!torrentMode || torrentLoading || torrentResults.length === 0) return;
-        const sentinel = torrentSentinelRef.current;
-        if (!sentinel) return;
-        const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting) {
-                setTorrentVisible(prev => Math.min(prev + 20, torrentResults.length));
-            }
-        }, { rootMargin: "300px" });
-        observer.observe(sentinel);
-        return () => observer.disconnect();
-    }, [torrentMode, torrentLoading, torrentResults.length]);
 
     const handleBackFromTorrents = useCallback(() => {
         setTorrentMode(false);
@@ -550,8 +578,62 @@ export default function MainContentModule() {
                                     )}
                                     {!torrentLoading && torrentResults.length > 0 && (
                                         <div style={s.resultsContainer}>
-                                            <div style={s.resultsCount}>{torrentResults.length} torrent{torrentResults.length > 1 ? "s" : ""}</div>
-                                            {torrentResults.slice(0, torrentVisible).map((result, idx) => (
+                                            {/* ── Sort & Filter bar ── */}
+                                            <div style={s.torrentControls}>
+                                                <div style={s.torrentControlGroup}>
+                                                    <span style={s.torrentControlLabel}>Sort</span>
+                                                    <select
+                                                        style={s.torrentSelect}
+                                                        value={torrentSortBy}
+                                                        onChange={e => { setTorrentSortBy(e.target.value); setExpandedIndex(null); }}
+                                                    >
+                                                        <option value="match_then_seeders">Default (exact first + most seeders)</option>
+                                                        <option value="seeders_desc">Most seeders</option>
+                                                        <option value="seeders_asc">Least seeders</option>
+                                                        <option value="size_desc">Size (largest)</option>
+                                                        <option value="size_asc">Size (smallest)</option>
+                                                        <option value="date_desc">Newest first</option>
+                                                        <option value="name_asc">A → Z</option>
+                                                    </select>
+                                                </div>
+                                                <div style={s.torrentControlGroup}>
+                                                    <span style={s.torrentControlLabel}>Match</span>
+                                                    <select
+                                                        style={s.torrentSelect}
+                                                        value={torrentFilterMatch}
+                                                        onChange={e => { setTorrentFilterMatch(e.target.value); setExpandedIndex(null); }}
+                                                    >
+                                                        <option value="all">All</option>
+                                                        <option value="exact">Exact match</option>
+                                                        <option value="identified">Has ID</option>
+                                                        <option value="different">Different</option>
+                                                        <option value="noid">No ID</option>
+                                                    </select>
+                                                </div>
+                                                <div style={s.torrentControlGroup}>
+                                                    <span style={s.torrentControlLabel}>Min seeds</span>
+                                                    <select
+                                                        style={s.torrentSelect}
+                                                        value={torrentFilterMinSeed}
+                                                        onChange={e => { setTorrentFilterMinSeed(Number(e.target.value)); setExpandedIndex(null); }}
+                                                    >
+                                                        <option value={0}>Any</option>
+                                                        <option value={1}>1+</option>
+                                                        <option value={5}>5+</option>
+                                                        <option value={10}>10+</option>
+                                                        <option value={25}>25+</option>
+                                                        <option value={50}>50+</option>
+                                                    </select>
+                                                </div>
+                                                <span style={s.torrentControlCount}>
+                                                    {processedTorrentResults.length} / {torrentResults.length}
+                                                </span>
+                                            </div>
+
+                                            {processedTorrentResults.length === 0 && (
+                                                <div style={s.searchListStatus}>No torrents match the current filters.</div>
+                                            )}
+                                            {processedTorrentResults.map((result, idx) => (
                                                 <SearchResultRow
                                                     key={idx}
                                                     result={result}
@@ -561,13 +643,7 @@ export default function MainContentModule() {
                                                     isLogged={isLogged}
                                                 />
                                             ))}
-                                            {torrentVisible < torrentResults.length && (
-                                                <div style={s.browseLoading}>
-                                                    <div style={s.browseSpinner} />
-                                                    <span>Loading more...</span>
-                                                </div>
-                                            )}
-                                            <div ref={torrentSentinelRef} style={s.browseSentinel} />
+
                                         </div>
                                     )}
                                 </div>
@@ -1015,8 +1091,47 @@ const s = {
         display: "flex",
         alignItems: "center",
         gap: 14,
-        padding: "10px 4px 14px",
+        padding: "10px 4px 10px",
         flexWrap: "wrap",
+    },
+    torrentControls: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap",
+        padding: "6px 2px 10px",
+        borderBottom: "1px solid #21262d",
+        marginBottom: 4,
+    },
+    torrentControlGroup: {
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+    },
+    torrentControlLabel: {
+        fontSize: "0.72rem",
+        fontWeight: 600,
+        color: "#8b949e",
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+        whiteSpace: "nowrap",
+    },
+    torrentSelect: {
+        background: "#0d1117",
+        border: "1px solid #30363d",
+        borderRadius: 5,
+        color: "#c9d1d9",
+        fontSize: "0.76rem",
+        fontFamily: "'Inter', sans-serif",
+        padding: "3px 7px",
+        cursor: "pointer",
+        outline: "none",
+    },
+    torrentControlCount: {
+        marginLeft: "auto",
+        fontSize: "0.76rem",
+        color: "#484f58",
+        whiteSpace: "nowrap",
     },
     backBtn: {
         background: "#21262d",
