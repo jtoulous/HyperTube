@@ -104,8 +104,16 @@ async def get_file_info(filename: str):
             })
             subtitle_index += 1
 
+    # Include video codec so the frontend/debug can see if transcoding will happen
+    video_codec = ""
+    for stream in probe.get("streams", []):
+        if stream.get("codec_type") == "video":
+            video_codec = stream.get("codec_name", "")
+            break
+
     return JSONResponse({
         "duration": duration,
+        "video_codec": video_codec,
         "audio_tracks": audio_tracks,
         "subtitle_tracks": subtitle_tracks,
     })
@@ -297,6 +305,9 @@ async def download_online_subtitle(
 # Codecs the browser can decode natively in an MP4 container
 BROWSER_SAFE_AUDIO = {"aac", "mp3", "opus", "flac", "vorbis"}
 
+# Video codecs the browser can play natively in an MP4 container
+BROWSER_SAFE_VIDEO = {"h264", "vp8", "vp9", "av1"}
+
 
 async def _probe_keyframe_time(filepath: str, target: float) -> float:
     """Return the PTS of the first frame FFmpeg would output when seeking
@@ -360,11 +371,22 @@ async def stream_video(
     target_height = RESOLUTION_MAP.get(resolution)
     use_copy = (resolution == "original")
 
-    # --- copy-mode: detect audio codec & resolve keyframe seek position ---
+    # --- Probe file when in copy mode to check audio & video codecs ---
     actual_start = start
     audio_needs_transcode = False
+    video_needs_transcode = False  # True when video is HEVC/other non-browser codec
     if use_copy:
         probe = await _run_ffprobe(filepath)
+        # Check video codec
+        video_streams = [s for s in probe.get("streams", [])
+                         if s.get("codec_type") == "video"]
+        if video_streams:
+            vcodec = video_streams[0].get("codec_name", "").lower()
+            if vcodec not in BROWSER_SAFE_VIDEO:
+                video_needs_transcode = True
+                logger.info(f"Video codec '{vcodec}' not browser-safe – transcoding to H.264 (libx264)")
+
+        # Check audio codec
         audio_streams = [s for s in probe.get("streams", [])
                          if s.get("codec_type") == "audio"]
         if audio_track < len(audio_streams):
@@ -381,14 +403,15 @@ async def stream_video(
         "-map", f"0:a:{audio_track}",
     ]
 
-    if use_copy:
+    if use_copy and not video_needs_transcode:
+        # Pure copy mode (video is browser-compatible)
         cmd += ["-start_at_zero", "-c:v", "copy"]
         if audio_needs_transcode:
             cmd += ["-c:a", "aac", "-b:a", "192k"]
         else:
             cmd += ["-c:a", "copy"]
     else:
-        # resolution downscale
+        # Transcode mode: either user chose a resolution, or HEVC needs re-encoding
         if target_height:
             cmd += ["-vf", f"scale=-2:{target_height}"]
         cmd += [
