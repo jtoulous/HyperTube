@@ -56,7 +56,7 @@ export default function MainContentModule() {
     const [torrentLoading, setTorrentLoading] = useState(false);
     const [torrentError,   setTorrentError]   = useState(null);
     const [expandedIndex,  setExpandedIndex]  = useState(null);
-    const [torrentVisible, setTorrentVisible] = useState(20);
+    const [torrentVisible, setTorrentVisible] = useState(1000);
     const torrentSentinelRef = useRef(null);
 
     const [browseGenre, setBrowseGenre] = useState("");

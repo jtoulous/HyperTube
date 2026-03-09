@@ -63,9 +63,14 @@ export default function BrowseView({ genre, period, sortBy, watchedImdbIds, film
 
         observerRef.current?.disconnect();
 
-        const observer = new IntersectionObserver(([entry]) => {
+        const observer = new IntersectionObserver(async ([entry]) => {
             if (entry.isIntersecting && !loadingRef.current && hasMoreRef.current) {
-                fetchPage(pageRef.current + 1, true);
+                await fetchPage(pageRef.current + 1, true);
+
+                // Continue loading if sentinel is still visible
+                if (sentinel.getBoundingClientRect().top < window.innerHeight) {
+                    await fetchPage(pageRef.current + 1, true);
+                }
             }
         }, { rootMargin: "200px" });
 
