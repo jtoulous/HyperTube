@@ -91,8 +91,9 @@ export function State({ children }) {
         if (!token) return;
         api.get('/users/me')
             .then((res) => {
-                setUsername(res.data.username);
-                if (res.data.language) setLanguage(res.data.language);
+                const profile = res.data.profile || res.data;
+                setUsername(profile.username);
+                if (profile.language) setLanguage(profile.language);
             })
             .catch(() => {
                 // Token is invalid/expired — logout

@@ -25,6 +25,9 @@ export default function PlayerViewModule({
     const [comments, setComments] = useState([]);
     const [commentText, setCommentText] = useState("");
     const [commentSubmitting, setCommentSubmitting] = useState(false);
+    const [editingCommentId, setEditingCommentId] = useState(null);
+    const [editingText, setEditingText] = useState("");
+    const [editSubmitting, setEditSubmitting] = useState(false);
 
     const castContentRef = useRef(null);
 
@@ -76,7 +79,37 @@ export default function PlayerViewModule({
         try {
             await filmsApi.deleteComment(commentId);
             setComments(prev => prev.filter(c => c.id !== commentId));
+            if (editingCommentId === commentId) {
+                setEditingCommentId(null);
+                setEditingText("");
+            }
         } catch {}
+    };
+
+    /* Start editing a comment */
+    const handleStartEdit = (comment) => {
+        setEditingCommentId(comment.id);
+        setEditingText(comment.text);
+    };
+
+    /* Cancel editing */
+    const handleCancelEdit = () => {
+        setEditingCommentId(null);
+        setEditingText("");
+    };
+
+    /* Update comment */
+    const handleUpdateComment = async (commentId) => {
+        const text = editingText.trim();
+        if (!text || editSubmitting) return;
+        setEditSubmitting(true);
+        try {
+            const res = await filmsApi.updateComment(commentId, text);
+            setComments(prev => prev.map(c => c.id === commentId ? { ...c, ...res.data } : c));
+            setEditingCommentId(null);
+            setEditingText("");
+        } catch {}
+        setEditSubmitting(false);
     };
 
     const isPlayerMode = !!selectedFile;
@@ -281,16 +314,55 @@ export default function PlayerViewModule({
                                         })}
                                     </span>
                                     {isLogged && c.username === username && (
-                                        <button
-                                            style={s.commentDeleteBtn}
-                                            onClick={() => handleDeleteComment(c.id)}
-                                            title="Delete comment"
-                                        >
-                                            ✕
-                                        </button>
+                                        <>
+                                            <button
+                                                style={s.commentEditBtn}
+                                                onClick={() => handleStartEdit(c)}
+                                                title="Edit comment"
+                                            >
+                                                ✎
+                                            </button>
+                                            <button
+                                                style={s.commentDeleteBtn}
+                                                onClick={() => handleDeleteComment(c.id)}
+                                                title="Delete comment"
+                                            >
+                                                ✕
+                                            </button>
+                                        </>
                                     )}
                                 </div>
-                                <p style={s.commentText}>{c.text}</p>
+                                {editingCommentId === c.id ? (
+                                    <div style={s.editForm}>
+                                        <textarea
+                                            style={s.commentInput}
+                                            value={editingText}
+                                            onChange={e => setEditingText(e.target.value)}
+                                            maxLength={2000}
+                                            rows={3}
+                                        />
+                                        <div style={s.editActions}>
+                                            <button
+                                                style={{
+                                                    ...s.commentBtn,
+                                                    ...(editSubmitting || !editingText.trim() ? s.commentBtnDisabled : {}),
+                                                }}
+                                                disabled={editSubmitting || !editingText.trim()}
+                                                onClick={() => handleUpdateComment(c.id)}
+                                            >
+                                                {editSubmitting ? "Saving..." : "Save"}
+                                            </button>
+                                            <button
+                                                style={s.cancelBtn}
+                                                onClick={handleCancelEdit}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p style={s.commentText}>{c.text}</p>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -306,7 +378,7 @@ const s = {
     viewRoot: {
         display: "flex",
         flexDirection: "column",
-        minHeight: "100%",
+        flex: "1 0 auto",
         background: "#0d1117",
         color: "#c9d1d9",
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -822,6 +894,17 @@ const s = {
         color: "#484f58",
         marginLeft: "auto",
     },
+    commentEditBtn: {
+        background: "none",
+        border: "none",
+        color: "#484f58",
+        cursor: "pointer",
+        fontSize: "0.8rem",
+        padding: "2px 6px",
+        borderRadius: 4,
+        marginLeft: 4,
+        transition: "color 0.15s",
+    },
     commentDeleteBtn: {
         background: "none",
         border: "none",
@@ -831,6 +914,27 @@ const s = {
         padding: "2px 6px",
         borderRadius: 4,
         marginLeft: 4,
+    },
+    editForm: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+    },
+    editActions: {
+        display: "flex",
+        gap: 8,
+        alignSelf: "flex-end",
+    },
+    cancelBtn: {
+        background: "#21262d",
+        border: "1px solid #30363d",
+        color: "#c9d1d9",
+        borderRadius: 6,
+        padding: "7px 18px",
+        fontSize: "0.82rem",
+        fontWeight: 600,
+        fontFamily: "'Inter', sans-serif",
+        cursor: "pointer",
     },
     commentText: {
         fontSize: "0.85rem",
