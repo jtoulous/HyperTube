@@ -24,6 +24,8 @@ async def list_films(
     session: AsyncSession = Depends(get_db),
 ):
     """List all films on the server (downloading + completed) with can_watch info."""
+    # Discover any torrents in qBittorrent not yet tracked as films
+    await FilmService.sync_orphan_torrents(session)
     # Refresh live progress from qBittorrent for any still-downloading films
     await FilmService.refresh_downloading_films(session)
     await session.commit()

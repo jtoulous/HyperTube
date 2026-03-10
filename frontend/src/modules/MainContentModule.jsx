@@ -72,7 +72,9 @@ export default function MainContentModule() {
 
     /*  Load watched IDs from API  */
     const loadWatchedIds = useCallback(async () => {
-        if (!isLogged) return;
+        if (!isLogged) 
+            return;
+
         try {
             const res = await filmsApi.getWatchedIds();
             const map = new Map();

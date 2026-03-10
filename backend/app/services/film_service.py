@@ -245,6 +245,171 @@ class FilmService:
             logger.warning(f"Failed to refresh downloading films from qBittorrent: {e}")
 
     @staticmethod
+    async def sync_orphan_torrents(session: AsyncSession):
+        """Discover torrents in qBittorrent that have no corresponding Film entry
+        and register them automatically so they appear in the library.
+
+        This handles the case where a torrent was added externally (e.g. via the
+        qBittorrent UI or a direct API call without an imdb_id).
+
+        Uses guessit to parse the torrent name and TMDB to resolve a real IMDb ID
+        so the film gets full metadata (poster, rating, genres, etc.).
+        """
+        from app.services.torrent_service import TorrentService
+        from app.services.tmdb_service import TmdbService
+        from app.models.download import Download
+
+        try:
+            from guessit import guessit as guess_it
+        except ImportError:
+            guess_it = None
+
+        try:
+            async with TorrentService() as ts:
+                all_torrents = await ts.list_torrents()
+
+            if not all_torrents:
+                return
+
+            # Collect all hashes already tracked by a Film (via torrent_hash column
+            # or embedded in noid-{hash} imdb_ids)
+            film_result = await session.execute(
+                select(Film.torrent_hash, Film.imdb_id)
+            )
+            known_hashes: set[str] = set()
+            known_imdb_ids: set[str] = set()
+            for row in film_result.all():
+                if row[0]:
+                    known_hashes.add(row[0].lower())
+                if row[1]:
+                    known_imdb_ids.add(row[1])
+                    if row[1].startswith("noid-"):
+                        known_hashes.add(row[1][5:].lower())
+
+            # Also include hashes from the downloads table IF they have a matching Film
+            dl_result = await session.execute(
+                select(Download.torrent_hash, Download.imdb_id).where(Download.torrent_hash.isnot(None)).distinct()
+            )
+            for row in dl_result.all():
+                if row[0] and row[1] and row[1] in known_imdb_ids:
+                    known_hashes.add(row[0].lower())
+
+            COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP",
+                                "pausedUP", "stoppedUP"}
+            PAUSED_STATES = {"pausedDL", "stoppedDL"}
+            ERROR_STATES = {"error", "missingFiles", "unknown"}
+
+            tmdb = TmdbService()
+            new_count = 0
+
+            for t in all_torrents:
+                h = t.get("hash", "").lower()
+                if not h or h in known_hashes:
+                    continue
+
+                state = t.get("state", "")
+                if state in COMPLETED_STATES:
+                    mapped = "completed"
+                elif state in PAUSED_STATES:
+                    mapped = "paused"
+                elif state in ERROR_STATES:
+                    mapped = "error"
+                else:
+                    mapped = "downloading"
+
+                total = t.get("size", 0)
+                downloaded = t.get("downloaded", 0)
+                progress = (downloaded / total * 100) if total > 0 else (t.get("progress", 0) * 100)
+
+                name = t.get("name", h)
+
+                # Try to identify the film via guessit + TMDB lookup
+                imdb_id = None
+                details = None
+                if guess_it:
+                    try:
+                        info = guess_it(name)
+                        parsed_title = info.get("title")
+                        parsed_year = info.get("year")
+                        if parsed_title:
+                            imdb_id = await tmdb.find_imdb_by_title(parsed_title, parsed_year)
+                    except Exception as e:
+                        logger.debug(f"guessit/TMDB lookup failed for '{name}': {e}")
+
+                # Fetch full metadata if we got an IMDb ID
+                if imdb_id and imdb_id.startswith("tt"):
+                    # Skip if a Film with this imdb_id already exists (avoid duplicates)
+                    if imdb_id in known_imdb_ids:
+                        # Just attach the hash to the existing film instead
+                        existing = await FilmService.get_film_by_imdb(session, imdb_id)
+                        if existing and not existing.torrent_hash:
+                            existing.torrent_hash = h
+                        known_hashes.add(h)
+                        continue
+
+                    try:
+                        details = await tmdb.get_by_imdb(imdb_id)
+                    except Exception:
+                        pass
+
+                # Build the film entry
+                if details and imdb_id:
+                    duration_sec = None
+                    if details.get("runtime"):
+                        try:
+                            minutes = int(str(details["runtime"]).replace(" min", "").strip())
+                            duration_sec = minutes * 60
+                        except (ValueError, AttributeError):
+                            pass
+
+                    await FilmService.upsert_film(
+                        session,
+                        imdb_id=imdb_id,
+                        title=details.get("title") or name,
+                        poster=details.get("poster"),
+                        year=details.get("year"),
+                        imdb_rating=details.get("imdb_rating"),
+                        genre=details.get("genre"),
+                        tmdb_id=details.get("tmdb_id"),
+                        status=mapped,
+                        progress=progress,
+                        download_speed=t.get("dlspeed", 0),
+                        total_bytes=total,
+                        downloaded_bytes=downloaded,
+                        duration=duration_sec,
+                        eta=t.get("eta"),
+                        torrent_hash=h,
+                    )
+                    known_imdb_ids.add(imdb_id)
+                    logger.info(f"Registered orphan torrent as identified film: {details.get('title')} ({imdb_id})")
+                else:
+                    # Fallback: register with noid- prefix
+                    fallback_id = f"noid-{h}"
+                    await FilmService.upsert_film(
+                        session,
+                        imdb_id=fallback_id,
+                        title=name,
+                        status=mapped,
+                        progress=progress,
+                        download_speed=t.get("dlspeed", 0),
+                        total_bytes=total,
+                        downloaded_bytes=downloaded,
+                        eta=t.get("eta"),
+                        torrent_hash=h,
+                    )
+                    logger.info(f"Registered orphan torrent as unidentified film: {name} ({fallback_id})")
+
+                known_hashes.add(h)
+                new_count += 1
+
+            if new_count:
+                await session.flush()
+                logger.info(f"[SYNC] Registered {new_count} orphan torrent(s) from qBittorrent")
+
+        except Exception as e:
+            logger.warning(f"Failed to sync orphan torrents from qBittorrent: {e}")
+
+    @staticmethod
     async def get_film_by_imdb(session: AsyncSession, imdb_id: str) -> Film | None:
         result = await session.execute(
             select(Film).where(Film.imdb_id == imdb_id)
