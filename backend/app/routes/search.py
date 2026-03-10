@@ -118,7 +118,7 @@ async def search_tmdb(
 async def browse_media(
     genre:      str   = Query("",        description="Genre filter e.g. Action"),
     period:     str   = Query("all",     description="day | week | month | all"),
-    sort_by:    str   = Query("seeders", description="seeders | rating | year | name"),
+    sort_by:    str   = Query("populars", description="populars | seeders | rating | year | name"),
     page:       int   = Query(1, ge=1),
     year:       int   = Query(None,      description="Exact release year e.g. 2024"),
     min_rating: float = Query(None,      description="Minimum vote average (0-10)"),
