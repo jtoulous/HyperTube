@@ -12,7 +12,7 @@ export const authApi = {
     refreshToken: (token) => api.post("/auth/refresh", { token }),
 
     oauth42: () => {
-        const clientId = import.meta.env.VITE_FORTYTWO_UID;
+        const clientId = window.__CONFIG__.FORTYTWO_UID;
         const redirectUri = window.location.origin + '/oauth-callback/42';
         const apiUrl = 'https://api.intra.42.fr/oauth/authorize?client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&response_type=code';
 
@@ -20,7 +20,7 @@ export const authApi = {
     },
 
     oauthGithub: () => {
-        const clientId = import.meta.env.VITE_GITHUB_UID;
+        const clientId = window.__CONFIG__.GITHUB_UID;
         const redirectUri = window.location.origin + '/oauth-callback/github';
         const apiUrl = 'https://github.com/login/oauth/authorize?client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=user:email';
 
@@ -28,7 +28,7 @@ export const authApi = {
     },
 
     oauthDiscord: () => {
-        const clientId = import.meta.env.VITE_DISCORD_UID;
+        const clientId = window.__CONFIG__.DISCORD_UID;
         const redirectUri = window.location.origin + '/oauth-callback/discord';
         const apiUrl = 'https://discord.com/api/oauth2/authorize?client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&response_type=code&scope=identify%20email';
 
