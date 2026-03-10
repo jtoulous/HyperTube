@@ -91,17 +91,6 @@ export default function SidebarModule({
                     )}
                 </div>
 
-                <div style={s.divider} />
-
-                <div style={s.section}>
-                    <div style={s.sectionLabel}>Sort by</div>
-                    <select style={s.sortSelect} value={browseSortBy} onChange={e => onSortByChange(e.target.value)}>
-                        {BROWSE_SORTS.map(opt => (
-                            <option key={opt.key} value={opt.key} style={s.sortOption}>{opt.label}</option>
-                        ))}
-                    </select>
-                </div>
-
                 {currentTab === "library" && isLogged && (
                     <>
                         <div style={s.divider} />
@@ -118,6 +107,17 @@ export default function SidebarModule({
                         </div>
                     </>
                 )}
+
+                <div style={s.divider} />
+
+                <div style={s.section}>
+                    <div style={s.sectionLabel}>Sort by</div>
+                    <select style={s.sortSelect} value={browseSortBy} onChange={e => onSortByChange(e.target.value)}>
+                        {BROWSE_SORTS.map(opt => (
+                            <option key={opt.key} value={opt.key} style={s.sortOption}>{opt.label}</option>
+                        ))}
+                    </select>
+                </div>
 
                 {(currentTab === "library" || (currentTab === "browse" && !hasSearched)) && (
                     <>
