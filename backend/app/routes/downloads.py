@@ -131,14 +131,15 @@ async def get_download_files(
     return {"files": video_files}
 
 
-# ─── Per-torrent controls (by hash) ────────────────────────────
-
+# Control each torrent by hash
 @router.post("/torrent/{torrent_hash}/pause")
 async def pause_torrent(
     torrent_hash: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Pause (stop) a torrent by its hash."""
+    """
+    Pause a torrent by its hash.
+    """
     try:
         async with TorrentService() as ts:
             await ts.pause(torrent_hash)
@@ -153,7 +154,9 @@ async def resume_torrent(
     torrent_hash: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Resume (start) a torrent by its hash."""
+    """
+    Resume a torrent by its hash.
+    """
     try:
         async with TorrentService() as ts:
             await ts.resume(torrent_hash)
@@ -169,7 +172,9 @@ async def delete_torrent(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete a torrent from qBittorrent. Also cleans up download rows and orphaned films."""
+    """
+    Delete a torrent from qBittorrent. Also cleans up download rows and films.
+    """
     from sqlalchemy import delete as sql_delete
     from app.models.download import Download
     from app.models.film import Film
@@ -185,7 +190,7 @@ async def delete_torrent(
 
     hash_lower = torrent_hash.lower()
 
-    # Collect imdb_ids affected before deleting rows (case-insensitive)
+    # Collect imdb_ids affected before deleting rows
     result = await session.execute(
         select(Download.imdb_id).where(
             sa_func.lower(Download.torrent_hash) == hash_lower
@@ -193,18 +198,16 @@ async def delete_torrent(
     )
     affected_imdb_ids = [row[0] for row in result.all() if row[0]]
 
-    # Delete all download rows with this hash (case-insensitive)
+    # Delete all download rows with this hash
     await session.execute(
         sql_delete(Download).where(sa_func.lower(Download.torrent_hash) == hash_lower)
     )
 
     # Clean up films that were linked to this hash and have no remaining downloads.
-    # Also handle noid-{hash} films.
     films_to_check = set(affected_imdb_ids)
     films_to_check.add(f"noid-{hash_lower}")
     films_to_check.add(f"noid-{torrent_hash}")
 
-    # Also look up any Film whose torrent_hash column matches the deleted hash
     res = await session.execute(
         select(Film).where(sa_func.lower(Film.torrent_hash) == hash_lower)
     )
@@ -219,14 +222,11 @@ async def delete_torrent(
         )
         remaining_row = remaining.first()
         if not remaining_row:
-            # No downloads left → delete the film
+            # No downloads left = delete the film
             await session.execute(
                 sql_delete(Film).where(Film.imdb_id == imdb_id)
             )
         else:
-            # Film still exists but its torrent_hash may point to the deleted hash.
-            # Update it to a remaining download's hash and reset status so
-            # refresh_downloading_films re-evaluates it from the remaining torrents.
             film_res = await session.execute(
                 select(Film).where(Film.imdb_id == imdb_id)
             )
@@ -237,7 +237,7 @@ async def delete_torrent(
                 # Force re-evaluation: reset to downloading so refresh picks it up
                 film_obj.status = "downloading"
 
-    # Re-evaluate film statuses immediately from qBittorrent
+    # Reevaluate film status immediately from qBittorrent
     from app.services.film_service import FilmService
     await FilmService.refresh_downloading_films(session)
 
@@ -250,7 +250,9 @@ async def recheck_torrent(
     torrent_hash: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Force recheck a torrent by its hash."""
+    """
+    Force recheck a torrent by its hash.
+    """
     try:
         async with TorrentService() as ts:
             await ts.recheck(torrent_hash)
@@ -259,31 +261,33 @@ async def recheck_torrent(
         raise HTTPException(status_code=500, detail="Could not recheck torrent")
     return {"ok": True}
 
-
-@router.post("/cleanup")
-async def force_cleanup(
-    current_user: User = Depends(get_current_user),
-):
-    """Force-run the stale film cleanup (removes films unwatched for 30+ days)."""
-    from app.services.cleanup_service import cleanup_stale_films
-    try:
-        await cleanup_stale_films()
-    except Exception as e:
-        logger.error(f"Cleanup failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Cleanup failed: {e}")
-    return {"ok": True}
-
-
 @router.post("/torrent/{torrent_hash}/reannounce")
 async def reannounce_torrent(
     torrent_hash: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Force reannounce a torrent to trackers by its hash."""
+    """
+    Force reannounce a torrent to trackers by its hash.
+    """
     try:
         async with TorrentService() as ts:
             await ts.reannounce(torrent_hash)
     except Exception as e:
         logger.error(f"Failed to reannounce torrent {torrent_hash}: {e}")
         raise HTTPException(status_code=500, detail="Could not reannounce torrent")
+    return {"ok": True}
+
+@router.post("/cleanup")
+async def force_cleanup(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Force-run the stale film cleanup (removes films unwatched for 30+ days).
+    """
+    from app.services.cleanup_service import cleanup_stale_films
+    try:
+        await cleanup_stale_films()
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Cleanup failed: {e}")
     return {"ok": True}

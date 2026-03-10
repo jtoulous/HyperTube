@@ -23,7 +23,7 @@ class TorrentService:
         self._client: Optional[httpx.AsyncClient] = None
         self._authenticated = False
 
-    #  context manager
+    # context manager
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(timeout=30)
@@ -34,7 +34,7 @@ class TorrentService:
         if self._client:
             await self._client.aclose()
 
-    #  authentication
+    # authentication
 
     async def _login(self):
         """Authenticate with qBittorrent and store the session cookie."""
@@ -51,7 +51,7 @@ class TorrentService:
         self._authenticated = True
         logger.info("Authenticated with qBittorrent")
 
-    #  helpers
+    # helpers
 
     async def _get(self, path: str, params: dict = None):
         resp = await self._client.get(f"{self._base}{path}", params=params)
@@ -63,7 +63,7 @@ class TorrentService:
         resp.raise_for_status()
         return resp
 
-    #  torrents
+    # torrents
 
     async def add_magnet(
         self,
@@ -121,7 +121,7 @@ class TorrentService:
         import hashlib
         import bencodepy
 
-        # Step 1: follow redirects manually to detect magnet:// redirects
+        # follow redirects manually to detect magnet:// redirects
         try:
             resp = await self._client.get(torrent_url, follow_redirects=False, timeout=30)
 
@@ -227,10 +227,10 @@ class TorrentService:
         return {
             "hash": t["hash"],
             "name": t["name"],
-            "progress": t["progress"],          # 0.0 to 1.0
+            "progress": t["progress"],
             "state": t["state"],
-            "dlspeed": t["dlspeed"],             # bytes/s
-            "eta": t["eta"],                     # seconds, 8640000 = ∞
+            "dlspeed": t["dlspeed"],
+            "eta": t["eta"],
             "size": t["size"],
             "downloaded": t["downloaded"],
             "save_path": t["save_path"],
@@ -247,11 +247,11 @@ class TorrentService:
             raise
 
     async def pause(self, torrent_hash: str):
-        """Pause (stop) a torrent.  qBittorrent >= 5.x uses /stop."""
+        """Pause (stop) a torrent."""
         await self._post("/api/v2/torrents/stop", data={"hashes": torrent_hash})
 
     async def resume(self, torrent_hash: str):
-        """Resume (start) a torrent.  qBittorrent >= 5.x uses /start."""
+        """Resume (start) a torrent."""
         await self._post("/api/v2/torrents/start", data={"hashes": torrent_hash})
 
     async def delete(self, torrent_hash: str, delete_files: bool = True):

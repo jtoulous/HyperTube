@@ -18,9 +18,7 @@ async def get_latest_comments(
     session: AsyncSession = Depends(get_db),
 ):
     """
-    GET /comments
-    Returns a list of latest comments which includes comment's author username,
-    date, content, and id.
+    Returns a list of latest comments which includes comment's author username, date, content, and id.
     """
     return await FilmService.get_all_comments(session)
 
@@ -31,7 +29,6 @@ async def get_comment(
     session: AsyncSession = Depends(get_db),
 ):
     """
-    GET /comments/:id
     Returns comment, author's username, comment id, date posted.
     """
     try:
@@ -51,7 +48,6 @@ async def create_comment(
     current_user: User = Depends(get_current_user),
 ):
     """
-    POST /comments
     Expected data: comment (text), movie_id (imdb_id). Rest is filled by the server.
     """
     if not body.movie_id:
@@ -82,7 +78,6 @@ async def update_comment(
     current_user: User = Depends(get_current_user),
 ):
     """
-    PATCH /comments/:id
     Expected data: comment (text), username.
     """
     try:
@@ -108,7 +103,7 @@ async def delete_comment(
     current_user: User = Depends(get_current_user),
 ):
     """
-    DELETE /comments/:id
+    Deletes comment if it belongs to the current user.
     """
     try:
         cid = PyUUID(comment_id)

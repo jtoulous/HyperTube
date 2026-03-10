@@ -1,12 +1,3 @@
-"""
-Automatic cleanup of stale torrents.
-
-Deletes torrents (and associated DB rows) for films that no user has watched
-in the past CLEANUP_STALE_DAYS days (default 30).
-
-Runs as a periodic background task started from the app lifespan.
-"""
-
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
@@ -21,24 +12,19 @@ from app.services.torrent_service import TorrentService
 
 logger = logging.getLogger(__name__)
 
-CLEANUP_STALE_DAYS = 30        # films unwatched for this many days get deleted
-CLEANUP_INTERVAL_HOURS = 24    # how often the check runs
+CLEANUP_STALE_DAYS = 30 # films unwatched for this many days get deleted
+CLEANUP_INTERVAL_SECONDS = 24 * 3600 # how often the check runs
 
 
 async def cleanup_stale_films():
     """
-    Find films whose most recent watch by *any* user is older than
-    CLEANUP_STALE_DAYS, then delete the torrent from qBittorrent and
-    clean up all related DB rows.
-
-    Films that have *never* been watched are checked against their
-    created_at date instead.
+    Find all films that haven't been watched in a long time and delete them, along with their torrents and related DB rows.
     """
     logger.info("[CLEANUP] Starting stale film cleanup …")
     cutoff = datetime.now(timezone.utc) - timedelta(days=CLEANUP_STALE_DAYS)
 
     async with AsyncSessionLocal() as session:
-        # ── 1. Find all films ──
+        # Find all films
         all_films_result = await session.execute(select(Film))
         all_films = all_films_result.scalars().all()
 
@@ -59,7 +45,7 @@ async def cleanup_stale_films():
                 if last_watched < cutoff:
                     stale_films.append(film)
             else:
-                # Never watched — use film creation date
+                # Never watched
                 created = film.created_at
                 if created is not None:
                     if created.tzinfo is None:
@@ -129,4 +115,4 @@ async def periodic_cleanup_task():
             await cleanup_stale_films()
         except Exception as e:
             logger.error(f"[CLEANUP] Error during cleanup: {e}", exc_info=True)
-        await asyncio.sleep(CLEANUP_INTERVAL_HOURS * 3600)
+        await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)

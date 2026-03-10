@@ -14,19 +14,17 @@ class FilmResponse(BaseModel):
     genre: Optional[str] = None
     tmdb_id: Optional[int] = None
 
-    # Download tracking
     status: str = "downloading"
     progress: float = 0.0
     download_speed: int = 0
     total_bytes: int = 0
     downloaded_bytes: int = 0
-    duration: Optional[int] = None   # movie runtime in seconds
-    eta: Optional[int] = None        # download ETA in seconds
+    duration: Optional[int] = None # movie runtime in seconds
+    eta: Optional[int] = None # download ETA in seconds
 
-    # Computed by the route handler
     can_watch: bool = False
-    watch_ready_in: Optional[int] = None   # seconds until watchable (0 if now, None if unknown)
-    availability: str = "not_available"    # fully_available | partially_available | downloading | not_available
+    watch_ready_in: Optional[int] = None # seconds until watchable (0 if now, None if unknown)
+    availability: str = "not_available" # fully_available | partially_available | downloading | not_available
 
     created_at: datetime
 
@@ -71,7 +69,7 @@ class CommentResponse(BaseModel):
 
 class CreateCommentRequest(BaseModel):
     text: str
-    movie_id: Optional[str] = None   # imdb_id, required for POST /comments (not needed when in URL)
+    movie_id: Optional[str] = None # imdb_id, required for POST /comments (not needed when in URL)
 
 
 class UpdateCommentRequest(BaseModel):

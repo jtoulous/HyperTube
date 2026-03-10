@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 TMDB_BASE = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
-# Rate limit: TMDB allows 40 req/s — we stay at 35 for safety margin
+# Rate limit: TMDB allows 40 req/s
 _RATE_LIMIT = 35
-_RATE_WINDOW = 1.0  # seconds
+_RATE_WINDOW = 1.0 # seconds
 
 
 class _RateLimiter:
@@ -201,9 +201,6 @@ class TmdbService:
         if not self._api_key:
             return {"results": [], "total_pages": 0}
 
-        # Adapt minimum vote count based on rating filter.
-        # High ratings are rare among heavily-voted films, so we lower
-        # the floor progressively to avoid empty result sets.
         if min_rating and min_rating >= 8:
             vote_floor = "1"
         elif min_rating and min_rating >= 6:
@@ -258,7 +255,7 @@ class TmdbService:
             logger.error("TMDB_API_KEY is not configured — cannot fetch details")
             return None
 
-        #  Check cache
+        # Check cache
         if imdb_id in self._cache:
             logger.debug(f"TMDB cache hit: {imdb_id}")
             return self._cache[imdb_id]
@@ -267,7 +264,7 @@ class TmdbService:
 
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                # Step 1 — find the TMDB id from the IMDb id
+                # find the TMDB id from the IMDb id
                 find_resp = await self._get(
                     client,
                     f"{TMDB_BASE}/find/{imdb_id}",
@@ -290,7 +287,7 @@ class TmdbService:
                     self._cache[imdb_id] = None
                     return None
 
-                # Step 2 — fetch full details + credits (single request)
+                # fetch full details + credits (single request)
                 detail_resp = await self._get(
                     client,
                     f"{TMDB_BASE}/{media_type}/{tmdb_id}",
@@ -306,9 +303,8 @@ class TmdbService:
         self._cache[imdb_id] = result
         return result
 
-    #  Normalize TMDB response to our standard shape
-
     def _normalize(self, imdb_id: str, tmdb_id: int, media_type: str, data: dict) -> dict:
+        """Normalize TMDB details response into our format."""
         title = data.get("title") or data.get("name") or ""
         release_date = data.get("release_date") or data.get("first_air_date") or ""
         year = release_date[:4] if release_date else None

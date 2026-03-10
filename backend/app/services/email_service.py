@@ -5,7 +5,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Email configuration
 conf = ConnectionConfig(
     MAIL_USERNAME=settings.SMTP_USER,
     MAIL_PASSWORD=settings.SMTP_PASSWORD,
@@ -27,74 +26,108 @@ class EmailService:
 
         reset_url = f"{settings.FRONT_URL}/reset-password?token={token}"
 
-        # TODO: Rework style of email to fit Hypertube project
-
         html_body = f"""
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <style>
                 body {{
-                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
                     line-height: 1.6;
-                    color: #333;
+                    background-color: #010409;
+                    color: #e6edf3;
                 }}
-                .container {{
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
+                .wrapper {{
+                    max-width: 520px;
+                    margin: 40px auto;
+                    padding: 0 16px;
+                }}
+                .card {{
+                    background-color: #0d1117;
+                    border: 1px solid #21262d;
+                    border-radius: 10px;
+                    overflow: hidden;
                 }}
                 .header {{
-                    background-color: #282c34;
-                    color: white;
-                    padding: 20px;
+                    padding: 28px 32px 20px;
                     text-align: center;
-                    border-radius: 5px 5px 0 0;
+                    border-bottom: 1px solid #21262d;
                 }}
                 .header h1 {{
-                    color: #fff;
+                    margin: 0;
+                    font-size: 22px;
+                    font-weight: 700;
+                    color: #e6edf3;
+                    letter-spacing: -0.3px;
                 }}
-                .content {{
-                    background-color: #f9f9f9;
-                    padding: 30px;
-                    border-radius: 0 0 5px 5px;
+                .body {{
+                    padding: 32px;
                 }}
-                .content h2 {{
-                    color: #282c34;
+                .body h2 {{
+                    margin: 0 0 8px;
+                    font-size: 17px;
+                    font-weight: 600;
+                    color: #e6edf3;
                 }}
-                .button {{
+                .body p {{
+                    margin: 0 0 16px;
+                    font-size: 14px;
+                    color: #8b949e;
+                }}
+                .cta {{
+                    text-align: center;
+                    margin: 28px 0;
+                }}
+                .cta a {{
                     display: inline-block;
-                    padding: 12px 30px;
-                    background-color: #282c34;
-                    color: white;
+                    padding: 11px 32px;
+                    background-color: #007BFF;
+                    color: #ffffff;
+                    font-size: 14px;
+                    font-weight: 600;
                     text-decoration: none;
-                    border-radius: 5px;
-                    margin: 20px 0;
+                    border-radius: 6px;
+                }}
+                .url {{
+                    word-break: break-all;
+                    font-size: 13px;
+                    color: #58a6ff;
+                }}
+                .note {{
+                    font-size: 13px;
+                    color: #8b949e;
+                    margin-top: 24px;
+                    padding-top: 16px;
+                    border-top: 1px solid #21262d;
                 }}
                 .footer {{
                     text-align: center;
-                    margin-top: 20px;
+                    padding: 16px 32px;
                     font-size: 12px;
-                    color: #666;
+                    color: #484f58;
                 }}
             </style>
         </head>
         <body>
-            <div class="container">
-                <div class="header">
-                    <h1>HyperTube</h1>
-                </div>
-                <div class="content">
-                    <h2>Password Reset Request</h2>
-                    <p>Hi {username},</p>
-                    <p>We received a request to reset your password. Click the button below to create a new password:</p>
-                    <p style="text-align: center;">
-                        <a href="{reset_url}" class="button">Reset Password</a>
-                    </p>
-                    <p>Or copy and paste this link into your browser:</p>
-                    <p style="word-break: break-all; color: #035391;">{reset_url}</p>
-                    <p><strong>This link will expire in 1 hour.</strong></p>
-                    <p>If you didn't request a password reset, you can safely ignore this email.</p>
+            <div class="wrapper">
+                <div class="card">
+                    <div class="header">
+                        <h1>HyperTube</h1>
+                    </div>
+                    <div class="body">
+                        <h2>Reset your password</h2>
+                        <p>Hey {username}, we received a request to reset your password. Use the button below to set a new one.</p>
+                        <div class="cta">
+                            <a href="{reset_url}">Reset Password</a>
+                        </div>
+                        <p>Or paste this link into your browser:</p>
+                        <p class="url">{reset_url}</p>
+                        <p class="note">This link expires in 1 hour. If you didn't request this, you can safely ignore this email — your password won't change.</p>
+                    </div>
                 </div>
                 <div class="footer">
                     <p>&copy; 2026 HyperTube. All rights reserved.</p>

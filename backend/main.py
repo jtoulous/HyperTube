@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import engine, Base
 from app.routes import router as api_router
-from app.models import User, Download, Film, WatchedFilm  # Import models to register them with Base
+from app.models import User, Download, Film, WatchedFilm
 from app.services.cleanup_service import periodic_cleanup_task
 
 
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: cancel cleanup task and dispose engine
+    # cancel cleanup task and dispose engine
     cleanup_task.cancel()
     try:
         await cleanup_task

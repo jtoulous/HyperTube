@@ -30,11 +30,13 @@ async def register(
     """
     Register a new user with email and password.
 
-    - **email**: Valid email address
-    - **username**: Unique username (3-50 characters)
-    - **password**: Strong password (minimum 8 characters)
+    Args:
+        - email: Valid email address (must be unique)
+        - username: Unique username (3-50 characters)
+        - password: Password (minimum 8 characters)
 
-    Returns user info and JWT token.
+    Returns:
+        - user info and JWT token.
     """
     # Create user and send verification email
     user = await AuthService.register_user(db, user_data)
@@ -56,10 +58,12 @@ async def login(
     """
     Login with email and password.
 
-    - **email**: Registered email address
-    - **password**: Account password
+    Args:
+        - email: Registered email address
+        - password: Account password
 
-    Returns user info and JWT token.
+    Returns:
+        - user info and JWT token.
     """
     # Authenticate user
     user = await AuthService.login_user(db, login_data)
@@ -81,7 +85,8 @@ async def forgot_password(
     """
     Request password reset email.
 
-    - **email**: User's email address
+    Args:
+        - email: User's email address
     """
     await AuthService.forgot_password(db, pass_request.email)
 
@@ -98,8 +103,9 @@ async def reset_password(
     """
     Reset password with token.
 
-    - **token**: Password reset token
-    - **new_password**: New password (minimum 8 characters)
+    Args:
+        - token: Password reset token
+        - new_password: New password (minimum 8 characters)
     """
     await AuthService.reset_password(db, pass_reset.token, pass_reset.new_password)
 
@@ -118,10 +124,9 @@ async def oauth_callback(
     Unified Omniauth callback.
     Exchanges the authorization code for an access token, fetches user info,
     and creates or logs in the user.
-    Supported providers: 42, github
     """
 
-    # Provider configurations (Omniauth strategy registry)
+    # Omniauth strategies for each provider.
     OAUTH_PROVIDERS = {
         "42": {
             "token_url": "https://api.intra.42.fr/oauth/token",
@@ -180,7 +185,7 @@ async def oauth_callback(
 
     cfg = OAUTH_PROVIDERS[provider]
 
-    # Step 1: Exchange authorization code for access token
+    # Exchange authorization code for access token
     token_data = {
         "grant_type": "authorization_code",
         "client_id": cfg["client_id"],
@@ -214,7 +219,7 @@ async def oauth_callback(
 
         access_token = token_json[cfg["token_field"]]
 
-        # Step 2: Fetch user info
+        # Fetch user info
         auth_headers = {"Authorization": f"Bearer {access_token}"}
         me_response = await client.get(cfg["user_url"], headers=auth_headers)
         if me_response.status_code != 200:
@@ -225,7 +230,7 @@ async def oauth_callback(
             )
         me_data = me_response.json()
 
-        # Step 2b: GitHub may not expose email in /user — fetch from /user/emails
+        # GitHub may not expose email in /user so trying to fetch from /user/emails
         if provider == "github" and not me_data.get("email"):
             email_url = cfg.get("email_url")
             if email_url:
@@ -236,10 +241,9 @@ async def oauth_callback(
                     if primary:
                         me_data["_primary_email"] = primary["email"]
 
-    # Step 3: Extract user fields via provider strategy
     user_info = cfg["extract_user"](me_data)
 
-    # Step 4: Create or login user via the appropriate service method
+    # Create or login user via the appropriate service method
     if provider == "42":
         user = await AuthService.oauth_fortytwo(
             db,
@@ -286,8 +290,6 @@ async def refresh_token(
 ):
     """
     Exchange a valid (or recently expired) JWT for a fresh one.
-    Allows up to 7 days of grace after expiry so users aren't
-    logged out by short-lived token timeouts or server restarts.
     """
     from jose import JWTError, jwt as jose_jwt
     from app.config import JWT_ALGORITHM
@@ -296,7 +298,6 @@ async def refresh_token(
     import uuid
 
     try:
-        # Accept tokens that expired up to 7 days ago
         payload = jose_jwt.decode(
             body.token,
             settings.JWT_SECRET,
@@ -306,10 +307,9 @@ async def refresh_token(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Enforce a hard 7-day window past expiry
     import time
     exp = payload.get("exp", 0)
-    if time.time() - exp > 7 * 86400:
+    if time.time() - exp > 7 * 24 * 3600: # 7 days
         raise HTTPException(status_code=401, detail="Token too old to refresh")
 
     user_id = payload.get("sub")

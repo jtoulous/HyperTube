@@ -1,6 +1,5 @@
 FROM python:3.12-slim
 
-# Install postgresql-client for database health check and ffmpeg for video transcoding
 RUN apt-get update && apt-get install -y postgresql-client ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -10,7 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Make entrypoint script executable
 RUN chmod +x entrypoint.sh
 
 EXPOSE 8000

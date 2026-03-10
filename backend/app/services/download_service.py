@@ -25,9 +25,6 @@ class DownloadService:
     ) -> Download:
         """
         Add a torrent to qBittorrent and create a Download record.
-        Prefers magnet links; falls back to .torrent URL if no magnet.
-        If the user already has a download with this hash, return it.
-        Also registers the film in the global catalogue immediately.
         """
         torrent_hash: str | None = None
 
@@ -106,8 +103,7 @@ class DownloadService:
         except Exception as e:
             logger.warning(f"Failed to register film {effective_id} at download start: {e}")
 
-        # Add the uploader to watched_films so cleanup tracks their interest.
-        # Uses ON CONFLICT DO NOTHING to never overwrite existing playback progress.
+        # Add the uploader to watched_films so cleanup track.
         try:
             from app.models.film import WatchedFilm
             from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -191,7 +187,6 @@ class DownloadService:
                     logger.warning(f"Torrent {download.torrent_hash} in state: {state}")
                 else:
                     logger.warning(f"Unknown qBittorrent state '{state}' for {download.torrent_hash}")
-                    # Don't overwrite a terminal status with an ambiguous fallback
                     if download.status not in (DownloadStatus.COMPLETED, DownloadStatus.ERROR):
                         download.status = DownloadStatus.DOWNLOADING
 
@@ -223,8 +218,8 @@ class DownloadService:
         return download
 
     async def _register_film(self, session: AsyncSession, imdb_id: str, fallback_title: str, torrent_hash: str | None = None):
-        """Fetch TMDB metadata and upsert into the global films catalogue.
-        For synthetic IDs (noid-*), skip the TMDB lookup entirely.
+        """
+        Fetch TMDB metadata and insert into the global films catalogue.
         """
         details = None
 
@@ -244,7 +239,7 @@ class DownloadService:
                 pass
 
         if details:
-            await FilmService.upsert_film(
+            await FilmService.insert_film(
                 session,
                 imdb_id=imdb_id,
                 title=details.get("title") or fallback_title,
@@ -257,7 +252,7 @@ class DownloadService:
                 torrent_hash=torrent_hash,
             )
         else:
-            await FilmService.upsert_film(
+            await FilmService.insert_film(
                 session,
                 imdb_id=imdb_id,
                 title=fallback_title,

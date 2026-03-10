@@ -34,7 +34,9 @@ TEXT_SUBTITLE_CODECS = {
 }
 
 def _safe_path(filename: str) -> str:
-    """Search MEDIA_DIRS for the file, guarding against path traversal."""
+    """
+    Search MEDIA_DIRS for the file, guarding against path traversal.
+    """
     for base_dir in MEDIA_DIRS:
         base = os.path.realpath(base_dir)
         filepath = os.path.realpath(os.path.join(base, filename))
@@ -46,7 +48,9 @@ def _safe_path(filename: str) -> str:
 
 
 async def _run_ffprobe(filepath: str) -> dict:
-    """Run ffprobe and return parsed JSON."""
+    """
+    Run ffprobe and return parsed JSON.
+    """
     proc = await asyncio.create_subprocess_exec(
         "ffprobe", "-v", "quiet",
         "-print_format", "json",
@@ -67,7 +71,7 @@ async def _run_ffprobe(filepath: str) -> dict:
 @router.get("/info/{filename:path}")
 async def get_file_info(filename: str, current_user: User = Depends(get_current_user)):
     """
-    Return total duration (seconds) and the list of audio tracks for a file.
+    Return total duration and the list of audio tracks for a file.
     The player uses this to populate the language selector and the seek bar.
     """
     filepath = _safe_path(filename)
@@ -96,7 +100,7 @@ async def get_file_info(filename: str, current_user: User = Depends(get_current_
             codec_name = stream.get("codec_name", "").lower()
             if codec_name not in TEXT_SUBTITLE_CODECS:
                 subtitle_index += 1
-                continue  # skip image-based subtitles (PGS, VOBSUB, etc.)
+                continue # skip image-based subtitles (PGS, VOBSUB, etc.)
             label = tags.get("title") or tags.get("language") or f"Track {subtitle_index}"
             subtitle_tracks.append({
                 "index":    subtitle_index,
@@ -127,7 +131,9 @@ async def get_subtitles(
     current_user: User = Depends(get_current_user),
     track: int = Query(default=0, description="Subtitle track index (0-based among subtitle streams)"),
 ):
-    """Extract an embedded subtitle track as WebVTT."""
+    """
+    Extract an embedded subtitle track as WebVTT.
+    """
     filepath = _safe_path(filename)
 
     logger.info(f"[SUB-EXTRACT] Extracting track {track} from {filename}")
@@ -159,13 +165,13 @@ async def get_subtitles(
     return Response(content=stdout, media_type="text/vtt")
 
 
-# ── Subdl.com subtitle API ──────────────────────────────────────────────
 SUBDL_API_BASE = "https://api.subdl.com/api/v1/subtitles"
 SUBDL_DL_BASE  = "https://dl.subdl.com"
 
-
 def _srt_to_vtt(srt: str) -> str:
-    """Convert SRT subtitle text to WebVTT."""
+    """
+    Convert SRT subtitle text to WebVTT.
+    """
     vtt = "WEBVTT\n\n" + srt.replace("\r\n", "\n")
     vtt = re.sub(r"(\d{2}:\d{2}:\d{2}),(\d{3})", r"\1.\2", vtt)
     return vtt
@@ -185,7 +191,6 @@ def _extract_subtitle_from_zip(zip_bytes: bytes) -> tuple[str, str]:
             ext = os.path.splitext(name)[1].lower()
             if ext in sub_extensions:
                 raw = zf.read(name)
-                # try utf-8-sig first (handles BOM), then latin-1 as fallback
                 for encoding in ("utf-8-sig", "utf-8", "latin-1"):
                     try:
                         text = raw.decode(encoding)
@@ -204,8 +209,6 @@ async def search_online_subtitles(
 ):
     """
     Search for subtitles on Subdl.com.
-    Free tier: 60 req/min, no daily download cap.
-    Get an API key at https://subdl.com (free).
     """
     if not settings.SUBDL_API_KEY:
         return JSONResponse({"results": [], "error": "SUBDL_API_KEY not configured"})
@@ -234,7 +237,7 @@ async def search_online_subtitles(
     for item in data.get("subtitles", []):
         results.append({
             "sd_id":     item.get("sd_id"),
-            "url":       item.get("url", ""),       # relative path for download
+            "url":       item.get("url", ""),
             "file_name": item.get("name", ""),
             "language":  item.get("language", "??"),
             "release":   item.get("release_name", ""),
@@ -293,7 +296,7 @@ async def download_online_subtitle(
                     end   = parts[2].strip()
                     txt   = re.sub(r"\{[^}]*\}", "", parts[9].strip())
                     txt   = txt.replace("\\N", "\n").replace("\\n", "\n")
-                    # Pad time to HH:MM:SS.mmm
+                    # time to HH:MM:SS.mmm
                     for t in (start, end):
                         if len(t.split(":")[0]) < 2:
                             t = "0" + t
@@ -307,16 +310,14 @@ async def download_online_subtitle(
     return Response(content=text.encode("utf-8"), media_type="text/vtt")
 
 
-# Codecs the browser can decode natively in an MP4 container
 BROWSER_SAFE_AUDIO = {"aac", "mp3", "opus", "flac", "vorbis"}
-
-# Video codecs the browser can play natively in an MP4 container
 BROWSER_SAFE_VIDEO = {"h264", "vp8", "vp9", "av1"}
 
 
 async def _probe_keyframe_time(filepath: str, target: float) -> float:
-    """Return the PTS of the first frame FFmpeg would output when seeking
-    to *target* in copy-mode (i.e. the nearest keyframe at or before target)."""
+    """
+    Use ffprobe to find the actual keyframe that FFmpeg copy-mode would seek to.
+    """
     if target <= 0:
         return 0.0
     proc = await asyncio.create_subprocess_exec(
@@ -337,7 +338,7 @@ async def _probe_keyframe_time(filepath: str, target: float) -> float:
                 return float(line)
             except ValueError:
                 pass
-    return target  # fallback
+    return target
 
 
 @router.get("/keyframe-time/{filename:path}")
@@ -347,7 +348,7 @@ async def get_keyframe_time(
     start: float = Query(default=0.0, description="Requested seek time in seconds"),
 ):
     """
-    Return the actual keyframe PTS that FFmpeg copy-mode would seek to.
+    Return the actual keyframe that FFmpeg copy-mode would seek to.
     Used by the player to set timeOffset for subtitle sync.
     """
     filepath = _safe_path(filename)
@@ -378,7 +379,7 @@ async def stream_video(
     target_height = RESOLUTION_MAP.get(resolution)
     use_copy = (resolution == "original")
 
-    # --- Probe file when in copy mode to check audio & video codecs ---
+    # Probe file when in copy mode to check audio & video codecs
     actual_start = start
     audio_needs_transcode = False
     video_needs_transcode = False  # True when video is HEVC/other non-browser codec

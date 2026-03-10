@@ -23,12 +23,12 @@ class Download(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
 
     title = Column(String(512), nullable=False)
-    imdb_id = Column(String(20), nullable=True, index=True)  # e.g., "tt1375666"
-    magnet_link = Column(Text, nullable=True)  # Null when using torrent_url instead
+    imdb_id = Column(String(20), nullable=True, index=True) # e.g. "tt1375666"
+    magnet_link = Column(Text, nullable=True) # Null when using torrent_url instead
     torrent_hash = Column(String(64), nullable=False, index=True)  # qBittorrent hash
 
     status = Column(SQLEnum(DownloadStatus, create_type=False, native_enum=False), default=DownloadStatus.DOWNLOADING, nullable=False)
-    progress = Column(Float, default=0.0, nullable=False)  # 0.0 to 100.0
+    progress = Column(Float, default=0.0, nullable=False) # 0.0 to 100.0
     downloaded_bytes = Column(BigInteger, default=0, nullable=False)
     total_bytes = Column(BigInteger, default=0, nullable=False)
 

@@ -38,25 +38,24 @@ _TMDB_SORT_MAP: dict[str, str] = {
     "name":     "original_title.asc",
 }
 
-
-#  Jackett raw torrent search
-
+# Hard filter to exclude adult content
 _ADULT_TITLE_WORDS = {"xxx", "porn", "hentai", "porno", "nsfw"}
-
 def _is_adult_content(result: dict) -> bool:
-    """Return True if the torrent appears to be adult / XXX content."""
-    # 1. Torznab category IDs 6000-6999 = "XXX"
+    """
+    Return True if the torrent appears to be adult content.
+    """
+    # Torznab category IDs 6000-6999 = "XXX"
     for cid in result.get("category_ids", []):
         try:
             if 6000 <= int(cid) < 7000:
                 return True
         except (ValueError, TypeError):
             pass
-    # 2. Category text
+    # Category text
     cat = (result.get("category") or "").lower()
     if any(k in cat for k in ("xxx", "adult", "porn", "hentai", "nsfw", "porno")):
         return True
-    # 3. Title keywords
+    # Title keywords
     title = _re.sub(r"[^a-z0-9\s]", " ", (result.get("title") or "").lower())
     if _ADULT_TITLE_WORDS & set(title.split()):
         return True
@@ -69,10 +68,12 @@ async def search_torrents(
     categories: str = Query(""),
     tmdb_id: int = Query(0, description="Optional TMDB ID to prioritize matching torrents"),
 ):
-    """Search Jackett for torrents matching the given title."""
+    """
+    Search Jackett for torrents matching the given title.
+    """
     results = await jackett.search(query, categories)
 
-    # Filter out adult / XXX content
+    # Filter adult content
     results = [r for r in results if not _is_adult_content(r)]
 
     deduped = _deduplicate_for_search(results)
@@ -92,27 +93,22 @@ async def search_torrents(
     # Enrich with guessit season/episode metadata
     _enrich_guessit_metadata(deduped)
 
-    # Sort: exact matches first, then unknown, then different
-    # Within each tier, sort by seeders descending
     tier_order = {"exact": 0, "unknown": 1, "different": 2}
     deduped.sort(key=lambda r: (tier_order.get(r["match_quality"], 1), -r.get("seeders", 0)))
 
     return {"results": deduped, "count": len(deduped)}
 
 
-#  TMDB title search (returns thumbnail-ready cards)
-
 @router.get("/tmdb")
 async def search_tmdb(
     query: str = Query(..., min_length=1),
     page:  int = Query(1, ge=1),
 ):
-    """Search TMDB by title. Returns movie/TV cards with poster + metadata."""
+    """
+    Search TMDB by title. Returns movie/TV cards with poster + metadata.
+    """
     results = await tmdb.search_by_title(query, page)
     return {"results": results, "page": page, "has_more": len(results) >= 20}
-
-
-#  Browse via TMDB Discover
 
 @router.get("/browse")
 async def browse_media(
@@ -131,7 +127,7 @@ async def browse_media(
     tmdb_sort = _TMDB_SORT_MAP.get(sort_by, "popularity.desc")
 
     # Period to TMDB release date filter
-    # Skip if an exact year is specified — they would conflict
+    # Skip if an exact year is specified
     date_gte: str | None = None
     date_lte: str | None = None
     if period != "all" and not year:
@@ -162,11 +158,10 @@ async def browse_media(
     }
 
 
-
-#  Helpers
-
 async def _resolve_imdbid(tmdb_id: int) -> str | None:
-    """Resolve a TMDB movie ID to an IMDb ID via /movie/{id}/external_ids."""
+    """
+    Resolve a TMDB movie ID to an IMDb ID via /movie/{id}/external_ids.
+    """
     import httpx
     try:
         async with httpx.AsyncClient(timeout=8) as client:
@@ -185,7 +180,9 @@ async def _resolve_imdbid(tmdb_id: int) -> str | None:
 
 
 def _deduplicate_for_search(results: list) -> list:
-    """Keep the best-seeded torrent per imdbid; preserve non-imdbid entries."""
+    """
+    Keep the best-seeded torrent per imdbid; preserve non-imdbid entries.
+    """
     best: dict[str, dict] = {}
     no_imdb = []
     for r in results:
@@ -201,7 +198,9 @@ def _deduplicate_for_search(results: list) -> list:
 import re as _re
 
 def _normalize_title(t: str) -> str:
-    """Lowercase, strip year/quality tags, punctuation to just words."""
+    """
+    Lowercase, strip year/quality tags, punctuation to just words.
+    """
     t = t.lower()
     # Remove everything after common quality/codec markers
     t = _re.split(r'\b(1080p|720p|2160p|4k|uhd|bluray|brrip|bdrip|web-?dl|webrip|hdtv|remux|hevc|x264|x265|h\.?264|h\.?265|aac|dts|ac3|multi|repack)\b', t)[0]
@@ -225,33 +224,14 @@ def _title_match_score(torrent_title: str, search_query: str) -> float:
     return matched / len(query_words)
 
 
-def _sort_by_relevance(results: list, query: str, target_imdbid: str | None) -> list:
-    """
-    Sort torrent results by relevance:
-    - Priority 1: matching imdbid (if resolved)
-    - Priority 2: title contains all query words (score == 1.0)
-    - Within each tier: sorted by seeders descending
-    - Non-matching results pushed to the end
-    """
-    def sort_key(r):
-        has_imdb_match = 1 if (target_imdbid and r.get("imdbid") == target_imdbid) else 0
-        title_score = _title_match_score(r.get("title", ""), query)
-        seeders = r.get("seeders", 0)
-        # Sort descending: negate so higher = first
-        return (-has_imdb_match, -title_score, -seeders)
-
-    return sorted(results, key=sort_key)
-
-
-#  Guessit enrichment
-
 def _enrich_guessit_metadata(results: list[dict]) -> None:
     """
     Run guessit on every torrent title and attach season / episode metadata.
-    Fields added to each result:
-      - season:         int | None
-      - episode:        int | None   (first episode if guessit returns a list)
-      - is_full_season: bool         (True when a season is present but no episode)
+
+    Results are added in-place as:
+        - season
+        - episode (first episode if guessit returns a list)
+        - is_full_season (True when a season is present but no episode)
     """
     for r in results:
         title = r.get("title", "")
@@ -276,13 +256,13 @@ def _enrich_guessit_metadata(results: list[dict]) -> None:
         r["is_full_season"] = (season is not None and episode is None)
 
 
-#  Guessit enrichment — resolve IMDb IDs for torrents that lack one
-
-# Cache guessit->TMDB lookups to avoid redundant requests within a single search
+# Cache guessit
 _guessit_cache: dict[str, str | None] = {}
 
 async def _guess_imdb_for_title(title: str) -> str | None:
-    """Use guessit to parse a torrent title and look up the IMDb ID via TMDB."""
+    """
+    Use guessit to parse a torrent title and look up the IMDb ID via TMDB.
+    """
     try:
         info = guessit(title)
     except Exception:
@@ -305,9 +285,6 @@ async def _guess_imdb_for_title(title: str) -> str | None:
 async def _enrich_missing_imdb(results: list[dict]) -> list[dict]:
     """
     For every result that has no imdbid, try to resolve one via guessit + TMDB.
-    Resolved IDs are stored as `guessed_imdbid` (the original `imdbid` stays None
-    so we know it was inferred, not provided by Jackett).
-    Runs lookups concurrently with a concurrency cap.
     """
     sem = asyncio.Semaphore(8)   # max 8 concurrent TMDB lookups
 
@@ -326,12 +303,10 @@ async def _enrich_missing_imdb(results: list[dict]) -> list[dict]:
 
 def _compute_match_quality(r: dict, target_imdbid: str | None) -> str:
     """
-    Return one of:
-      "exact"     — the torrent's (original or guessed) IMDb ID matches the target
-      "unknown"   — no IMDb ID could be determined at all
-      "different" — an IMDb ID was found but it doesn't match the target
-    If there is no target (no tmdb_id was passed), treat everything with an ID
-    as "exact" and everything without as "unknown".
+    Returns one of:
+        - exact: The torrent's (original or guessed) IMDb ID matches the target
+        - unknown: no IMDb ID could be determined at all
+        - different: an IMDb ID was found but it doesn't match the target
     """
     effective_id = r.get("guessed_imdbid") or r.get("imdbid")
 
@@ -347,8 +322,6 @@ def _compute_match_quality(r: dict, target_imdbid: str | None) -> str:
 
     return "different"
 
-
-#  Media details
 
 @router.get("/media/{imdb_id}")
 async def get_media_details(imdb_id: str):

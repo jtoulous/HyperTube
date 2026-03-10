@@ -63,8 +63,8 @@ async def get_user_profile(
     Requires: Valid JWT token in Authorization header
 
     Visibility levels:
-    - **Private**: Full profile if viewing your own profile
-    - **Public**: Basic profile for other users (username, profile picture, created_at)
+    - Private: Full profile if viewing your own profile
+    - Public: Basic profile for other users (username, profile picture, created_at)
     """
     return await UserService.get_profile_with_visibility(db, user_id, current_user)
 
@@ -80,8 +80,8 @@ async def update_my_profile(
 
     Requires: Valid JWT token in Authorization header
 
-    - **username**: New username (optional, must be unique)
-    - **profile_picture**: New profile picture URL (optional)
+    - username: New username (optional, must be unique)
+    - profile_picture: New profile picture URL (optional)
     """
     updated_user = await UserService.update_profile(db, current_user, update_data)
     return UserPrivateProfile.model_validate(updated_user)

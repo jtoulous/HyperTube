@@ -37,7 +37,6 @@ class OAuthCodeRequest(BaseModel):
 class EmailVerification(BaseModel):
     token: str
 
-# Response schemas
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

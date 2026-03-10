@@ -17,7 +17,7 @@ class FilmService:
     """Manages the global film catalogue and per-user watched tracking."""
 
     @staticmethod
-    async def upsert_film(
+    async def insert_film(
         session: AsyncSession,
         imdb_id: str,
         title: str,
@@ -35,7 +35,7 @@ class FilmService:
         eta: int | None = None,
         torrent_hash: str | None = None,
     ) -> Film:
-        """Insert or update a film (idempotent on imdb_id)."""
+        """Insert a new film."""
         stmt = pg_insert(Film).values(
             imdb_id=imdb_id,
             title=title,
@@ -65,7 +65,7 @@ class FilmService:
 
         result = await session.execute(stmt)
         film = result.scalar_one()
-        logger.info(f"Upserted film: {imdb_id} — {title} [{status} {progress:.1f}%]")
+        logger.info(f"Inserted film: {imdb_id} — {title} [{status} {progress:.1f}%]")
         return film
 
     @staticmethod
@@ -105,7 +105,8 @@ class FilmService:
 
     @staticmethod
     async def refresh_downloading_films(session: AsyncSession):
-        """Poll qBittorrent for non-completed films and update the DB.
+        """
+        Poll qBittorrent for non-completed films and update the DB.
 
         Considers ALL torrent hashes per film (from Film.torrent_hash and the
         Downloads table) so that multi-torrent films reflect their best status.
@@ -246,14 +247,9 @@ class FilmService:
 
     @staticmethod
     async def sync_orphan_torrents(session: AsyncSession):
-        """Discover torrents in qBittorrent that have no corresponding Film entry
+        """
+        Discover torrents in qBittorrent that have no corresponding Film entry
         and register them automatically so they appear in the library.
-
-        This handles the case where a torrent was added externally (e.g. via the
-        qBittorrent UI or a direct API call without an imdb_id).
-
-        Uses guessit to parse the torrent name and TMDB to resolve a real IMDb ID
-        so the film gets full metadata (poster, rating, genres, etc.).
         """
         from app.services.torrent_service import TorrentService
         from app.services.tmdb_service import TmdbService
@@ -271,8 +267,7 @@ class FilmService:
             if not all_torrents:
                 return
 
-            # Collect all hashes already tracked by a Film (via torrent_hash column
-            # or embedded in noid-{hash} imdb_ids)
+            # Collect all hashes already tracked by a Film (via torrent_hash column)
             film_result = await session.execute(
                 select(Film.torrent_hash, Film.imdb_id)
             )
@@ -362,7 +357,7 @@ class FilmService:
                         except (ValueError, AttributeError):
                             pass
 
-                    await FilmService.upsert_film(
+                    await FilmService.insert_film(
                         session,
                         imdb_id=imdb_id,
                         title=details.get("title") or name,
@@ -383,9 +378,8 @@ class FilmService:
                     known_imdb_ids.add(imdb_id)
                     logger.info(f"Registered orphan torrent as identified film: {details.get('title')} ({imdb_id})")
                 else:
-                    # Fallback: register with noid- prefix
                     fallback_id = f"noid-{h}"
-                    await FilmService.upsert_film(
+                    await FilmService.insert_film(
                         session,
                         imdb_id=fallback_id,
                         title=name,
@@ -427,14 +421,9 @@ class FilmService:
         """
         Per-torrent availability computation.
 
-        Returns (can_watch, ready_in_seconds):
-            can_watch        – True means playback can start now.
-            ready_in_seconds – 0 if ready, None if unknowable, else positive int.
-
-        Math (uniform-bitrate assumption):
-            At time *t* after pressing play we need:
-                downloaded_fraction + (speed * t / total) >= t / duration
-            Worst case is t = duration → min_p = 1 - speed*duration/total
+        Returns:
+            can_watch: True means playback can start now.
+            ready_in_seconds: 0 if ready, None if unknowable, else positive int.
         """
         if status == "completed":
             return True, 0
@@ -485,10 +474,8 @@ class FilmService:
     async def mark_watched(
         session: AsyncSession, user_id: UUID, imdb_id: str, stopped_at: int = 0
     ) -> WatchedFilm:
-        """Mark a film as watched by a user (idempotent on user+imdb_id).
-
-        Automatically sets is_completed=True when the remaining time
-        (film.duration − stopped_at) is less than 5 minutes.
+        """
+        Mark a film as watched by a user (on user+imdb_id).
         """
         # Look up the film to get duration for is_completed computation
         is_completed = False
@@ -527,10 +514,8 @@ class FilmService:
     async def update_progress(
         session: AsyncSession, user_id: UUID, imdb_id: str, stopped_at: int
     ) -> WatchedFilm:
-        """Update playback position for a film the user is watching.
-
-        Creates the watched_films row if it doesn't exist yet.
-        Automatically sets is_completed when remaining < 5 min.
+        """
+        Update playback position for a film the user is watching.
         """
         return await FilmService.mark_watched(session, user_id, imdb_id, stopped_at)
 
@@ -559,8 +544,6 @@ class FilmService:
             )
         )
         return result.rowcount > 0
-
-    # ─── Comments ───────────────────────────────────────────────────
 
     @staticmethod
     async def get_all_comments(session: AsyncSession, limit: int = 50) -> list[dict]:

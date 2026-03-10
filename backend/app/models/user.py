@@ -15,10 +15,8 @@ class AuthProvider(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    # Primary key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Authentication
     email = Column(String(255), unique=True, nullable=False, index=True)
     first_name = Column(String(255), unique=False, nullable=False, index=True)
     last_name= Column(String(255), unique=False, nullable=False, index=True)
@@ -27,19 +25,15 @@ class User(Base):
     auth_provider = Column(SQLEnum(AuthProvider, create_type=False, native_enum=False), default=AuthProvider.EMAIL, nullable=False)
     language = Column(String(10), nullable=False, default="en")
 
-    # Password reset
     reset_token = Column(String(255), nullable=True)
     reset_token_expires = Column(DateTime(timezone=True), nullable=True)
 
-    # OAuth linking
     fortytwo_id = Column(String(255), unique=True, nullable=True, index=True)
     github_id = Column(String(255), unique=True, nullable=True, index=True)
     discord_id = Column(String(255), unique=True, nullable=True, index=True)
 
-    # Profile
     profile_picture = Column(String, nullable=True)  # URL to profile picture
 
-    # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     last_login = Column(DateTime(timezone=True), nullable=True)

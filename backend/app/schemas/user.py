@@ -4,8 +4,8 @@ from datetime import datetime
 import uuid
 
 class ProfileVisibility:
-    PUBLIC = "public"      # Anyone can see
-    PRIVATE = "private"    # Only the user can see
+    PUBLIC = "public" # Anyone can see
+    PRIVATE = "private" # Only the user can see
 
 class UserProfileUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)
@@ -46,7 +46,6 @@ class UserPrivateProfile(UserPublicProfile):
         from_attributes = True
 
 class UserProfileResponse(BaseModel):
-    """Response wrapper that includes relationship info"""
-    profile: dict  # Will contain appropriate profile based on visibility
-    visibility: str  # "public", "friends", or "private"
+    profile: dict
+    visibility: str
     is_self: bool = False

@@ -1,5 +1,6 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException
+from yaml import Mark
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -23,10 +24,12 @@ async def list_films(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    """List all films on the server (downloading + completed) with can_watch info."""
-    # Discover any torrents in qBittorrent not yet tracked as films
+    """
+    List all films on the server (downloading + completed) with can_watch info.
+    """
+    # Discover any torrents in qBittorrent not tracked as films
     await FilmService.sync_orphan_torrents(session)
-    # Refresh live progress from qBittorrent for any still-downloading films
+    # Refresh live progress from qBittorrent for any films currently downloading
     await FilmService.refresh_downloading_films(session)
     await session.commit()
 
@@ -64,7 +67,6 @@ async def get_film_files(
     if not film:
         raise HTTPException(status_code=404, detail="Film not found")
 
-    # Gather every torrent hash linked to this film (same logic as /torrents)
     hashes: set[str] = set()
     if film.torrent_hash:
         hashes.add(film.torrent_hash.lower())
@@ -113,7 +115,9 @@ async def get_watched_films(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return list of watched films with stopped_at and is_completed."""
+    """
+    Return list of watched films with stopped_at and is_completed.
+    """
     return await FilmService.get_watched_imdb_ids(session, current_user.id)
 
 
@@ -123,7 +127,9 @@ async def mark_film_watched(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Mark a film as watched by the current user."""
+    """
+    Mark a film as watched with optional stopped_at position.
+    """
     film = await FilmService.mark_watched(session, current_user.id, body.imdb_id, body.stopped_at or 0)
     await session.commit()
     return film
@@ -135,7 +141,9 @@ async def update_watch_progress(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update playback position for a film. Auto-marks completed if <5min remaining."""
+    """
+    Update playback position for a film. Auto-marks completed if <5min remaining.
+    """
     film = await FilmService.update_progress(session, current_user.id, body.imdb_id, body.stopped_at)
     await session.commit()
     return film
@@ -147,7 +155,9 @@ async def unmark_film_watched(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Remove watched mark for a film."""
+    """
+    Remove watched mark for a film.
+    """
     deleted = await FilmService.unmark_watched(session, current_user.id, imdb_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Film not in watched list")
@@ -155,7 +165,7 @@ async def unmark_film_watched(
     return {"ok": True}
 
 
-# ─── Comments (film-scoped, kept for convenience) ──────────────
+# Comments
 
 @router.get("/{imdb_id}/comments")
 async def get_comments(
@@ -163,7 +173,9 @@ async def get_comments(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    """Get all comments for a film."""
+    """
+    Get all comments for a film.
+    """
     return await FilmService.get_comments(session, imdb_id)
 
 
@@ -174,7 +186,9 @@ async def add_comment(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Add a comment on a film (POST /movies/:movie_id/comments variant)."""
+    """
+    Add a comment on a film (POST /movies/:movie_id/comments variant).
+    """
     text = body.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Comment cannot be empty")
@@ -191,8 +205,9 @@ async def add_comment(
         "text": comment.text,
         "created_at": comment.created_at.isoformat(),
     }
-# ─── Torrent listing for a film ─────────────────────────────────
 
+
+# Torrent listing for a film
 COMPLETED_STATES = {"uploading", "forcedUP", "stalledUP", "queuedUP", "checkingUP",
                     "pausedUP", "stoppedUP"}  # seeding paused = download done
 PAUSED_STATES = {"pausedDL", "stoppedDL"}  # download paused
@@ -230,7 +245,7 @@ async def get_film_torrents(
             if row[0]:
                 hashes.add(row[0].lower())
 
-    # Also grab title from downloads, keyed by hash
+    # Also grab title from downloads
     title_map: dict[str, str] = {}
     if hashes:
         result = await session.execute(
@@ -290,7 +305,6 @@ async def get_film_torrents(
                 })
         except Exception as e:
             logger.error(f"Failed to fetch torrent info for film {imdb_id}: {e}")
-            # On error, return empty rather than fake error entries
             pass
 
     return {"torrents": torrents}
