@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { GlobalState } from "../State";
 import { searchApi } from "../api/search";
 import { downloadsApi } from "../api/downloads";
@@ -14,7 +14,6 @@ import PlayerViewModule from "./PlayerViewModule";
 
 export default function MainContentModule() {
     const { isLogged, sidebarOpen, setSidebarOpen, language } = GlobalState();
-    const navigate = useNavigate();
     const location = useLocation();
 
     const [isMobile, setIsMobile] = useState(
@@ -42,13 +41,13 @@ export default function MainContentModule() {
     const [torrentTitle, setTorrentTitle] = useState("");
     const [torrentResults, setTorrentResults] = useState([]);
     const [torrentLoading, setTorrentLoading] = useState(false);
-    const [torrentError,   setTorrentError]   = useState(null);
+    const [torrentError, setTorrentError] = useState(null);
 
-    const [torrentSortBy,       setTorrentSortBy]       = useState("match_then_seeders");
-    const [torrentFilterMatch,  setTorrentFilterMatch]  = useState("all");
+    const [torrentSortBy, setTorrentSortBy] = useState("match_then_seeders");
+    const [torrentFilterMatch, setTorrentFilterMatch] = useState("all");
     const [torrentFilterMinSeed, setTorrentFilterMinSeed] = useState(0);
-    const [torrentFilterSeason,   setTorrentFilterSeason]  = useState("all");
-    const [torrentFilterEpisode,  setTorrentFilterEpisode] = useState("all");
+    const [torrentFilterSeason, setTorrentFilterSeason] = useState("all");
+    const [torrentFilterEpisode, setTorrentFilterEpisode] = useState("all");
 
     const [browseGenre, setBrowseGenre] = useState("");
     const [browsePeriod, setBrowsePeriod] = useState("all");
@@ -62,7 +61,7 @@ export default function MainContentModule() {
 
     const [watchedImdbIds, setWatchedImdbIds] = useState(new Map());
 
-    /* Player state for watching from library */
+    // Player state for watching from library
     const [playerFile, setPlayerFile] = useState(null);
     const [playerTitle, setPlayerTitle] = useState("");
     const [playerAllFiles, setPlayerAllFiles] = useState([]);
@@ -70,7 +69,7 @@ export default function MainContentModule() {
     const [playerMovie, setPlayerMovie] = useState(null);
     const [playerTorrents, setPlayerTorrents] = useState([]);
 
-    /*  Load watched IDs from API  */
+    // Load wathded IDS
     const loadWatchedIds = useCallback(async () => {
         if (!isLogged)
             return;
@@ -85,7 +84,7 @@ export default function MainContentModule() {
         }
     }, [isLogged]);
 
-    /*  Load ALL films from the server for library view  */
+    // Load all films from library if lib view is selected
     const loadFilms = useCallback(async () => {
         setLibraryLoading(true);
         try {
@@ -99,7 +98,6 @@ export default function MainContentModule() {
                 imdb_rating: f.imdb_rating,
                 genre_tags: f.genre ? f.genre.split(", ") : [],
                 created_at: f.created_at,
-                /* download / watchability info */
                 status: f.status,
                 progress: f.progress,
                 download_speed: f.download_speed,
@@ -121,10 +119,10 @@ export default function MainContentModule() {
         if (isLogged) loadWatchedIds();
     }, [isLogged, loadWatchedIds]);
 
-    /* Load films once on mount so filmStatusMap is available on all tabs */
+    // init laod films on module mount
     useEffect(() => { loadFilms(); }, [loadFilms]);
 
-    /* While on the library tab or while the Module is open, refresh every 5 s so progress stays live */
+    // refresh films every 5 sec to keep it up to date
     useEffect(() => {
         if (currentTab !== "library" && !playerMovie) return;
         loadFilms();
@@ -132,7 +130,7 @@ export default function MainContentModule() {
         return () => clearInterval(iv);
     }, [currentTab, loadFilms, !!playerMovie]);
 
-    /* Keep playerMovie in sync with live library data + refresh torrent list */
+    // When libraryMovies update, refresh the playerMovie from the library to get update
     useEffect(() => {
         if (!playerMovie) return;
         const fresh = libraryMovies.find(m => m.imdbid === playerMovie.imdbid);
@@ -143,7 +141,7 @@ export default function MainContentModule() {
             .catch(() => { });
     }, [libraryMovies]);
 
-    /*  Filtered / sorted library movies  */
+    // filter and sort library movies
     const filteredLibraryMovies = useMemo(() => {
         let movies = [...libraryMovies];
         const q = searchQuery.trim().toLowerCase();
@@ -162,7 +160,7 @@ export default function MainContentModule() {
         return movies;
     }, [libraryMovies, searchQuery, browseGenre, browseSortBy, browsePeriod, browseRating]);
 
-    /** Season/episode options derived from backend-provided guessit fields */
+    // Season/episode options
     const torrentSEData = useMemo(() => {
         const seasons = new Set();
         const episodes = new Set();
@@ -207,7 +205,6 @@ export default function MainContentModule() {
         // Filter by episode
         if (torrentFilterEpisode !== "all") {
             if (torrentFilterEpisode === "full") {
-                // Full season packs only (no specific episode)
                 items = items.filter(r => r.is_full_season);
             } else {
                 const wantEp = parseInt(torrentFilterEpisode, 10);
@@ -222,11 +219,11 @@ export default function MainContentModule() {
                 items.sort((a, b) => matchRank(a) - matchRank(b) || (b.seeders || 0) - (a.seeders || 0));
                 break;
             case "seeders_desc": items.sort((a, b) => (b.seeders || 0) - (a.seeders || 0)); break;
-            case "seeders_asc":  items.sort((a, b) => (a.seeders || 0) - (b.seeders || 0)); break;
-            case "size_desc":    items.sort((a, b) => (b.size || 0) - (a.size || 0)); break;
-            case "size_asc":     items.sort((a, b) => (a.size || 0) - (b.size || 0)); break;
-            case "date_desc":    items.sort((a, b) => new Date(b.pub_date || 0) - new Date(a.pub_date || 0)); break;
-            case "name_asc":     items.sort((a, b) => (a.title || "").localeCompare(b.title || "")); break;
+            case "seeders_asc": items.sort((a, b) => (a.seeders || 0) - (b.seeders || 0)); break;
+            case "size_desc": items.sort((a, b) => (b.size || 0) - (a.size || 0)); break;
+            case "size_asc": items.sort((a, b) => (a.size || 0) - (b.size || 0)); break;
+            case "date_desc": items.sort((a, b) => new Date(b.pub_date || 0) - new Date(a.pub_date || 0)); break;
+            case "name_asc": items.sort((a, b) => (a.title || "").localeCompare(b.title || "")); break;
             default: break;
         }
 
@@ -243,7 +240,6 @@ export default function MainContentModule() {
 
     const handleTabClick = (tab) => {
         setCurrentTab(tab);
-        // Close the player view if open so the tab content is visible
         if (playerFile) {
             setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerMovie(null); setPlayerTorrents([]);
         }
@@ -331,7 +327,7 @@ export default function MainContentModule() {
         }
     }, [isLogged, watchedImdbIds]);
 
-    /** Report playback progress from the player — called periodically and on unmount */
+    // When the player reports time updates, save them to the backend so progress is preserved
     const handleTimeReport = useCallback(async (stoppedAt, duration) => {
         if (!isLogged || !playerImdbId) return;
         try {
@@ -351,7 +347,7 @@ export default function MainContentModule() {
         }
     }, [isLogged, playerImdbId]);
 
-    /** Open the film detail / player Module from the library */
+    // Open the film detail
     const handleWatchFilm = useCallback(async (movie) => {
         if (!movie?.imdbid) return;
         setPlayerMovie(movie);
@@ -372,7 +368,7 @@ export default function MainContentModule() {
         }
     }, []);
 
-    /** Reload torrents + files for the currently open Module */
+    // Refresh the film files
     const refreshModule = useCallback(async () => {
         if (!playerImdbId) return;
         try {
@@ -387,7 +383,7 @@ export default function MainContentModule() {
         loadFilms();
     }, [playerImdbId, loadFilms]);
 
-    /** Per-torrent control handlers — accept hash from WatchModule */
+    // Per-torrent control handlers, accept hash from WatchModule
     const handleTorrentPause = useCallback(async (hash) => {
         try { await downloadsApi.pauseTorrent(hash); loadFilms(); refreshModule(); } catch (e) { console.error(e); }
     }, [loadFilms, refreshModule]);
@@ -400,13 +396,13 @@ export default function MainContentModule() {
             await downloadsApi.deleteTorrent(hash);
             // Refresh library first so the film disappears if it was removed server-side
             await loadFilms();
-            // Re-fetch torrents for the current film to see what's left
+            // fetch torrents for the current film to see what's left
             if (playerImdbId) {
                 try {
                     const torrentsRes = await filmsApi.getFilmTorrents(playerImdbId);
                     const remaining = torrentsRes.data?.torrents || [];
                     if (remaining.length === 0) {
-                        // Film was deleted server-side — close Module
+                        // Film was deleted server-side, close Module
                         setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
                     } else {
                         setPlayerTorrents(remaining);
@@ -414,7 +410,7 @@ export default function MainContentModule() {
                         setPlayerAllFiles(filesRes.data?.files || []);
                     }
                 } catch {
-                    // Film no longer exists on server — close Module
+                    // Film no longer exists on server, close Module
                     setPlayerMovie(null); setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerTorrents([]);
                 }
             }
@@ -444,7 +440,6 @@ export default function MainContentModule() {
         setPlayerFile(null); setPlayerAllFiles([]); setPlayerImdbId(null); setPlayerMovie(null); setPlayerTorrents([]);
     };
 
-    /*  Computed tab content area style — adjust margin-left based on sidebar state on desktop  */
     const tabContentAreaStyle = isMobile
         ? s.tabContentArea
         : { ...s.tabContentArea, marginLeft: sidebarOpen ? 220 : 0 };
