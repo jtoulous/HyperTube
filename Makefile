@@ -16,6 +16,7 @@ clean: down
 	@echo "Cleaning up ..."
 	@docker system prune -f
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
+	@find . -type d -name "node_modules" -exec rm -rf {} +
 
 fclean: clean
 	@docker system prune -af --volumes
