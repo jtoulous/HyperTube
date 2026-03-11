@@ -11,7 +11,7 @@ import {
 const RESOLUTIONS = ["original", "720", "480", "360"];
 
 const LANG_NAMES = {
-    // ISO 639-1 (2-letter)
+    // (2-letter)
     en: "English", fr: "French", es: "Spanish", de: "German", pt: "Portuguese",
     it: "Italian", ja: "Japanese", ko: "Korean", zh: "Chinese", ar: "Arabic",
     ru: "Russian", nl: "Dutch", pl: "Polish", sv: "Swedish", da: "Danish",
@@ -21,7 +21,7 @@ const LANG_NAMES = {
     bg: "Bulgarian", hr: "Croatian", sk: "Slovak", sl: "Slovenian", sr: "Serbian",
     lt: "Lithuanian", lv: "Latvian", et: "Estonian", ca: "Catalan", gl: "Galician",
     eu: "Basque", fa: "Persian", ur: "Urdu", ta: "Tamil", te: "Telugu",
-    // ISO 639-2/B (3-letter, used by MKV/FFmpeg)
+    // (3-letter, used by MKV/FFmpeg)
     eng: "English", fre: "French", fra: "French", spa: "Spanish", ger: "German",
     deu: "German", por: "Portuguese", ita: "Italian", jpn: "Japanese", kor: "Korean",
     zho: "Chinese", chi: "Chinese", ara: "Arabic", rus: "Russian", dut: "Dutch",
@@ -55,13 +55,13 @@ const LANG_2_TO_3 = {
     eu: ["baq", "eus"], fa: ["per", "fas"], ur: ["urd"], ta: ["tam"], te: ["tel"],
 };
 
-// Build reverse map: 3-letter → 2-letter
+// Reverse map, 3-letter to 2-letter
 const LANG_3_TO_2 = {};
 for (const [code2, codes3] of Object.entries(LANG_2_TO_3)) {
     for (const c3 of codes3) LANG_3_TO_2[c3] = code2;
 }
 
-/** Check if a track's language tag matches a user preference (2- or 3-letter) */
+// Check if a track's language tag matches a user preference
 function langMatches(trackLang, userLang) {
     if (!trackLang || !userLang) return false;
     const tl = trackLang.toLowerCase();
@@ -100,10 +100,10 @@ function buildUrl(filename, resolution, audioTrack, start) {
 }
 
 export default function PlayerModule({ filename, imdbId, onTimeReport, initialTime = 0, userLang }) {
-    const videoRef      = useRef(null);
-    const containerRef  = useRef(null);
-    const seekRef       = useRef(null);
-    const hideTimerRef  = useRef(null);
+    const videoRef = useRef(null);
+    const containerRef = useRef(null);
+    const seekRef = useRef(null);
+    const hideTimerRef = useRef(null);
     const wasPlayingRef = useRef(false); // remember play state across stream reloads
 
     // Inject keyframe animation for the spinner once
@@ -118,9 +118,9 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     }, []);
 
     // Stream parameters
-    const [resolution,  setResolution]  = useState("original");
-    const [audioTrack,  setAudioTrack]  = useState(0);
-    const [startParam,  setStartParam]  = useState(0);
+    const [resolution, setResolution] = useState("original");
+    const [audioTrack, setAudioTrack] = useState(0);
+    const [startParam, setStartParam] = useState(0);
 
     // File metadata (from /info endpoint)
     const [totalDuration, setTotalDuration] = useState(0);
@@ -129,15 +129,15 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     // Playback UI state
     const [playing,         setPlaying]         = useState(false);
     const [stalled,         setStalled]         = useState(false);
-    const [currentTime,     setCurrentTime]      = useState(0);   // relative to current stream segment
-    const [timeOffset,      setTimeOffset]       = useState(0);   // absolute seconds before this segment
-    const [buffered,        setBuffered]         = useState(0);
-    const [volume,          setVolume]           = useState(1);
-    const [muted,           setMuted]            = useState(false);
-    const [isFullscreen,    setIsFullscreen]     = useState(false);
-    const [showResMenu,     setShowResMenu]      = useState(false);
-    const [showLangMenu,    setShowLangMenu]     = useState(false);
-    const [showSubMenu,     setShowSubMenu]      = useState(false);
+    const [currentTime,     setCurrentTime]     = useState(0); // relative to current stream segment
+    const [timeOffset,      setTimeOffset]      = useState(0); // absolute seconds before this segment
+    const [buffered,        setBuffered]        = useState(0);
+    const [volume,          setVolume]          = useState(1);
+    const [muted,           setMuted]           = useState(false);
+    const [isFullscreen,    setIsFullscreen]    = useState(false);
+    const [showResMenu,     setShowResMenu]     = useState(false);
+    const [showLangMenu,    setShowLangMenu]    = useState(false);
+    const [showSubMenu,     setShowSubMenu]     = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
     const [isSeeking,       setIsSeeking]       = useState(false);
     const [seekPreviewPct,  setSeekPreviewPct]  = useState(0);
@@ -148,20 +148,20 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     const [onlineSubtitles,   setOnlineSubtitles]   = useState([]);
     const [onlineSearching,   setOnlineSearching]   = useState(false);
     const [onlineSearchDone,  setOnlineSearchDone]  = useState(false);
-    const [downloadingFileId, setDownloadingFileId] = useState(null);  // url being downloaded
-    const [activeSubtitle,    setActiveSubtitle]    = useState(-1);   // -1 = off
-    const [activeCueText,     setActiveCueText]     = useState("");   // current subtitle text to render
-    const [parsedCues,        setParsedCues]        = useState([]);   // array of arrays of {start, end, text}
-    const vttCacheRef  = useRef(new Map());  // src → raw VTT text
+    const [downloadingFileId, setDownloadingFileId] = useState(null); // url being downloaded
+    const [activeSubtitle,    setActiveSubtitle]    = useState(-1); // -1 = off
+    const [activeCueText,     setActiveCueText]     = useState(""); // current subtitle text to render
+    const [parsedCues,        setParsedCues]        = useState([]); // array of arrays of {start, end, text}
     const [infoLoaded,        setInfoLoaded]        = useState(false);
-    const autoSubRanRef = useRef(false);  // auto-subtitle selection ran
+    const vttCacheRef  = useRef(new Map());  // src → raw VTT text
+    const autoSubRanRef = useRef(false);  // auto-subtitle selection
 
     // Derived absolute time: timeOffset = actual keyframe time, currentTime = relative from there
     const absTime = timeOffset + currentTime;
     const progress = totalDuration > 0 ? (absTime / totalDuration) * 100 : 0;
     const bufferProgress = totalDuration > 0 ? ((timeOffset + buffered) / totalDuration) * 100 : 0;
     const displayProgress = isSeeking ? seekPreviewPct : progress;
-    const displayTime     = isSeeking ? (seekPreviewPct / 100 * totalDuration) : absTime;
+    const displayTime = isSeeking ? (seekPreviewPct / 100 * totalDuration) : absTime;
 
     const streamUrl = buildUrl(filename, resolution, audioTrack, startParam);
 
@@ -182,7 +182,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         setStartParam(resumeTime);
         setCurrentTime(0);
 
-        // For copy mode, probe actual keyframe time; for start=0 just use 0
         if (resumeTime > 0) {
             fetch(`/api/v1/stream/keyframe-time/${filename}?start=${resumeTime}`, { headers: authHeaders() })
                 .then(r => r.json())
@@ -208,7 +207,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
             });
     }, [filename]);
 
-    // Video event listeners (attached once, persistent across stream reloads)
+    // Video event listeners
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -249,7 +248,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
             video.removeEventListener("waiting",      onWaiting);
             video.removeEventListener("canplay",      onCanPlay);
             video.removeEventListener("playing",      onCanPlay);
-            // Abort any in-flight stream on unmount
             video.pause();
             video.removeAttribute("src");
             video.load();
@@ -257,7 +255,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     }, []);
 
     // Load new stream URL into persistent <video> element.
-    // Setting .src on an attached element auto-aborts the previous fetch.
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -318,7 +315,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         };
     }, [onTimeReport]);
 
-    // Controls auto-hide
+    // Controls autohide
     const showControls = useCallback(() => {
         setControlsVisible(true);
         clearTimeout(hideTimerRef.current);
@@ -352,7 +349,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         const cues = [];
         const blocks = vttText.split(/\n\n+/);
 
-        // Convert a VTT timestamp (HH:MM:SS.mmm or MM:SS.mmm) to seconds
         const parseTs = (str) => {
             const parts = str.split(":");
             if (parts.length === 3) {
@@ -381,7 +377,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         return cues;
     }, []);
 
-    // Fetch & parse VTT for all subtitle tracks (cached)
+    // Fetch & parse VTT for all subtitle tracks
     useEffect(() => {
         let cancelled = false;
 
@@ -411,7 +407,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         return () => { cancelled = true; };
     }, [allSubtitles, parseVtt]);
 
-    // Render active subtitle text based on absTime (absolute movie time)
+    // Render active subtitle text based on absTime
     useEffect(() => {
         if (activeSubtitle < 0 || activeSubtitle >= parsedCues.length) {
             setActiveCueText("");
@@ -489,7 +485,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         })();
     }, [infoLoaded, userLang, imdbId, subtitleTracks, audioTracks, audioTrack]);
 
-    // Search for online subtitles (Subdl)
+    // Search for online subtitles
     const searchOnlineSubtitles = useCallback(async () => {
         if (!imdbId || onlineSearchDone) return;
         setOnlineSearching(true);
@@ -523,7 +519,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
         setDownloadingFileId(null);
     }, [downloadingFileId, subtitleTracks.length, onlineSubtitles.length]);
 
-    // Auto-fetch online subtitles when subtitle menu is opened
+    // fetch online subtitles when subtitle menu is opened
     useEffect(() => {
         if (showSubMenu && imdbId && !onlineSearchDone && !onlineSearching) {
             searchOnlineSubtitles();
@@ -555,8 +551,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
     };
 
     // Reload the stream at a new position/resolution/track, preserving play state.
-    // For copy mode, we AWAIT the keyframe probe so timeOffset is set correctly
-    // BEFORE startParam triggers the stream URL change.
     const reloadStream = useCallback(async ({ time, res, track } = {}) => {
         const video = videoRef.current;
         wasPlayingRef.current = !!(video && !video.paused);
@@ -704,7 +698,7 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                 </span>
             </div>
 
-            {/* Custom subtitle overlay */}
+            {/* Subtitle overlay */}
             {activeCueText && (
                 <div style={styles.subtitleOverlay}>
                     <span style={styles.subtitleText}
@@ -790,7 +784,6 @@ export default function PlayerModule({ filename, imdbId, onTimeReport, initialTi
                                     onClick={e => e.stopPropagation()}
                                     onMouseDown={e => e.stopPropagation()}
                                 >
-                                    {/* Off + embedded tracks */}
                                     <button
                                         style={{ ...styles.menuItem, ...(activeSubtitle === -1 ? styles.menuItemActive : {}) }}
                                         onClick={() => { setActiveSubtitle(-1); setShowSubMenu(false); }}

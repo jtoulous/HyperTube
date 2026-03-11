@@ -77,6 +77,7 @@ export default function ProfileModule({ isOpen, onClose, targetUsername }) {
         if (e.key === "Enter") handleSearch();
     };
 
+    // Fetch profile when opens or targetUsername changes
     useEffect(() => {
         if (!isOpen) return;
         setError("");

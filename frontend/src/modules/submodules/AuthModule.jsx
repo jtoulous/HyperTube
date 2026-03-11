@@ -8,11 +8,11 @@ export default function AuthModule() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
-    // Login state
+    // Login
     const [loginEmail, setLoginEmail] = useState("");
     const [loginPassword, setLoginPassword] = useState("");
 
-    // Register state
+    // Register
     const [regFirstName, setRegFirstName] = useState("");
     const [regLastName, setRegLastName] = useState("");
     const [regUsername, setRegUsername] = useState("");
@@ -20,7 +20,7 @@ export default function AuthModule() {
     const [regPassword, setRegPassword] = useState("");
     const [regConfirm, setRegConfirm] = useState("");
 
-    // Reset state
+    // Reset
     const [resetEmail, setResetEmail] = useState("");
 
     const clearMessages = () => { setError(""); setSuccess(""); };

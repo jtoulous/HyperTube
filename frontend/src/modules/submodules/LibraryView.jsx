@@ -1,13 +1,6 @@
 import MovieCard from "./MovieCard";
 
-export default function LibraryView({
-    libraryLoading,
-    filteredLibraryMovies,
-    libraryMoviesCount,
-    watchedImdbIds,
-    isLogged,
-    onWatchFilm,
-}) {
+export default function LibraryView({libraryLoading, filteredLibraryMovies, libraryMoviesCount, watchedImdbIds, isLogged, onWatchFilm}) {
     return (
         <div style={s.libraryTab}>
             {libraryLoading && filteredLibraryMovies.length === 0 && (

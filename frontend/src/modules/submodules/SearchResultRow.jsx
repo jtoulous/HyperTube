@@ -31,7 +31,6 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
         }
     };
 
-    // Effective IMDb ID: prefer Jackett's, fall back to guessit's
     const effectiveImdbId = result.imdbid || result.guessed_imdbid;
 
     const handleToggle = () => {
@@ -67,7 +66,6 @@ export default function SearchResultRow({ result, isExpanded, onToggle, onDownlo
         return () => clearTimeout(timer);
     });
 
-    // eslint-disable-next-line
     useState(() => { });
 
     return (

@@ -25,7 +25,7 @@ const STATUS_LABELS = {
     error:       { text: "Error",       color: "#f85149" },
 };
 
-/* Per-torrent control row */
+// Per torrent row in the torrents panel
 function TorrentRow({ torrent, onPause, onResume, onDelete, onRecheck, onReannounce }) {
     const [actionLoading, setActionLoading] = useState(null);
     const { hash, name, status, progress, download_speed, eta } = torrent;
@@ -61,32 +61,45 @@ function TorrentRow({ torrent, onPause, onResume, onDelete, onRecheck, onReannou
             <div style={styles.torrentActions}>
                 {isPaused ? (
                     <button style={{ ...styles.ctrlBtn, ...styles.ctrlBtnResume }} onClick={() => run("resume", onResume)} disabled={!!actionLoading}>
-                        {actionLoading === "resume" ? "\u2026" : "\u25b6"}
+                        {actionLoading === "resume" ? "…" : "▶"}
                     </button>
                 ) : status === "downloading" ? (
                     <button style={{ ...styles.ctrlBtn, ...styles.ctrlBtnPause }} onClick={() => run("pause", onPause)} disabled={!!actionLoading}>
-                        {actionLoading === "pause" ? "\u2026" : "\u23f8"}
+                        {actionLoading === "pause" ? "…" : "⏸"}
                     </button>
                 ) : null}
                 <button style={{ ...styles.ctrlBtn, ...styles.ctrlBtnDefault }} onClick={() => run("recheck", onRecheck)} disabled={!!actionLoading} title="Force recheck">
-                    {actionLoading === "recheck" ? "\u2026" : "\ud83d\udd04"}
+                    {actionLoading === "recheck" ? "…" : "🔄"}
                 </button>
                 <button style={{ ...styles.ctrlBtn, ...styles.ctrlBtnDefault }} onClick={() => run("reannounce", onReannounce)} disabled={!!actionLoading} title="Reannounce">
-                    {actionLoading === "reannounce" ? "\u2026" : "\ud83d\udce2"}
+                    {actionLoading === "reannounce" ? "…" : "📢"}
                 </button>
                 <button style={{ ...styles.ctrlBtn, ...styles.ctrlBtnDelete }} onClick={() => run("delete", onDelete)} disabled={!!actionLoading} title="Delete torrent">
-                    {actionLoading === "delete" ? "\u2026" : "\ud83d\uddd1"}
+                    {actionLoading === "delete" ? "…" : "🗑"}
                 </button>
             </div>
         </div>
     );
 }
 
-/* Main Module */
+
 export default function WatchModule({
-    file, title, allFiles, onFileChange, onClose, onTimeReport, initialTime = 0,
-    torrents = [], onPause, onResume, onDelete, onRecheck, onReannounce, onRefresh,
-    imdbId, userLang,
+    file,
+    title,
+    allFiles,
+    onFileChange,
+    onClose,
+    onTimeReport,
+    initialTime = 0,
+    torrents = [],
+    onPause,
+    onResume,
+    onDelete,
+    onRecheck,
+    onReannounce,
+    onRefresh,
+    imdbId,
+    userLang
 }) {
     useEffect(() => {
         const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -99,16 +112,14 @@ export default function WatchModule({
         torrents.filter(t => t.can_watch).map(t => t.hash)
     );
 
-    // Tag each file with playability based on its torrent's can_watch
+    // Tag each file with playability based on torrent can_watch
     const taggedFiles = (allFiles || []).map(f => ({
         ...f,
         playable: !f.torrent_hash || watchableHashes.has(f.torrent_hash),
     }));
     const playableFiles = taggedFiles.filter(f => f.playable);
 
-    // Split torrents: downloading (not yet watchable) vs available (can_watch)
     const downloadingTorrents = torrents.filter(t => !t.can_watch);
-    const availableTorrents = torrents.filter(t => t.can_watch);
 
     const hasFiles = taggedFiles.length > 0;
     const hasPlayable = playableFiles.length > 0;
@@ -119,16 +130,15 @@ export default function WatchModule({
         <div style={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={{ ...styles.ModuleWrapper, ...(isPlayerMode ? {} : styles.ModuleNarrow) }}>
 
-                {/* Header */}
                 <div style={styles.header}>
                     {file && hasFiles && (
-                        <button style={styles.backBtn} onClick={() => onFileChange(null)} title="Back to sources">{"\u2190"}</button>
+                        <button style={styles.backBtn} onClick={() => onFileChange(null)} title="Back to sources">←</button>
                     )}
                     <span style={styles.title}>{title}</span>
-                    <button style={styles.closeBtn} onClick={onClose} title="Close (Esc)">{"\u2715"}</button>
+                    <button style={styles.closeBtn} onClick={onClose} title="Close (Esc)">✕</button>
                 </div>
 
-                {/* Per-torrent controls — always visible */}
+                {/* Per torrent controls */}
                 {!isPlayerMode && torrents.length > 0 && (
                     <div style={styles.torrentsPanel}>
                         <div style={styles.panelHeader}>
@@ -148,7 +158,7 @@ export default function WatchModule({
                     </div>
                 )}
 
-                {/* Source picker — playable files from watchable torrents */}
+                {/* Source picker */}
                 {isPickerMode && (
                     <div style={styles.pickerBody}>
                         <div style={styles.pickerLabel}>
@@ -169,7 +179,7 @@ export default function WatchModule({
                                         onMouseLeave={disabled ? undefined : e => { e.currentTarget.style.background = "#161b22"; }}
                                         disabled={disabled}
                                     >
-                                        <span style={styles.fileIcon}>{"\ud83c\udfac"}</span>
+                                        <span style={styles.fileIcon}>🎬</span>
                                         <div style={styles.fileInfo}>
                                             <span style={{
                                                 ...styles.fileName,
@@ -177,11 +187,11 @@ export default function WatchModule({
                                             }}>{f.name.split("/").pop()}</span>
                                             <span style={styles.fileMeta}>
                                                 {formatSize(f.size)}
-                                                {disabled && " \u2014 downloading\u2026"}
+                                                {disabled && " - downloading..."}
                                             </span>
                                         </div>
-                                        {!disabled && <span style={styles.playIcon}>{"\u25b6"}</span>}
-                                        {disabled && <span style={{ ...styles.playIcon, color: "#484f58" }}>{"\u23f3"}</span>}
+                                        {!disabled && <span style={styles.playIcon}>▶️</span>}
+                                        {disabled && <span style={{ ...styles.playIcon, color: "#484f58" }}>⏳</span>}
                                     </button>
                                 );
                             })}
@@ -193,7 +203,7 @@ export default function WatchModule({
                 {!isPlayerMode && !hasFiles && (
                     <div style={styles.noFilesMsg}>
                         {downloadingTorrents.length > 0
-                            ? "No playable video files yet \u2014 download is still in progress."
+                            ? "No playable video files yet - download is still in progress."
                             : "No playable video files found."}
                         {onRefresh && (
                             <button style={styles.refreshBtn} onClick={onRefresh}>Refresh</button>
@@ -228,102 +238,246 @@ export default function WatchModule({
     );
 }
 
-/* --- Inline styles --- */
 const styles = {
     overlay: {
-        position: "fixed", inset: 0, zIndex: 9999,
-        background: "rgba(0,0,0,.85)", display: "flex",
-        alignItems: "center", justifyContent: "center",
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(0,0,0,.85)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
     },
     ModuleWrapper: {
-        background: "#0d1117", borderRadius: 12, width: "90vw", maxWidth: 1100,
-        maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column",
+        background: "#0d1117",
+        borderRadius: 12,
+        width: "90vw",
+        maxWidth: 1100,
+        maxHeight: "92vh",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
         border: "1px solid #30363d",
     },
-    ModuleNarrow: { maxWidth: 600 },
+    ModuleNarrow: {
+        maxWidth: 600,
+    },
     header: {
-        display: "flex", alignItems: "center", padding: "14px 18px",
-        borderBottom: "1px solid #21262d", gap: 10,
+        display: "flex",
+        alignItems: "center",
+        padding: "14px 18px",
+        borderBottom: "1px solid #21262d",
+        gap: 10,
     },
     backBtn: {
-        background: "none", border: "none", color: "#58a6ff", fontSize: 22,
-        cursor: "pointer", padding: "0 4px",
+        background: "none",
+        border: "none",
+        color: "#58a6ff",
+        fontSize: 22,
+        cursor: "pointer",
+        padding: "0 4px",
     },
-    title: { flex: 1, color: "#e6edf3", fontSize: 17, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+    title: {
+        flex: 1,
+        color: "#e6edf3",
+        fontSize: 17,
+        fontWeight: 600,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+    },
     closeBtn: {
-        background: "none", border: "none", color: "#8b949e", fontSize: 20,
-        cursor: "pointer", padding: "0 4px",
+        background: "none",
+        border: "none",
+        color: "#8b949e",
+        fontSize: 20,
+        cursor: "pointer",
+        padding: "0 4px",
     },
-
-    /* Torrents panel */
     torrentsPanel: {
-        borderBottom: "1px solid #21262d", padding: "10px 18px",
-        maxHeight: 200, overflowY: "auto",
+        borderBottom: "1px solid #21262d",
+        padding: "10px 18px",
+        maxHeight: 200,
+        overflowY: "auto",
     },
-    panelHeader: { fontSize: 13, color: "#8b949e", marginBottom: 8, fontWeight: 600 },
+    panelHeader: {
+        fontSize: 13,
+        color: "#8b949e",
+        marginBottom: 8,
+        fontWeight: 600,
+    },
     torrentRow: {
-        display: "flex", alignItems: "center", gap: 12,
-        padding: "6px 0", borderTop: "1px solid #21262d",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "6px 0",
+        borderTop: "1px solid #21262d",
     },
-    torrentInfo: { flex: 1, minWidth: 0 },
+    torrentInfo: {
+        flex: 1,
+        minWidth: 0,
+    },
     torrentName: {
-        display: "block", fontSize: 13, color: "#c9d1d9",
-        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        display: "block",
+        fontSize: 13,
+        color: "#c9d1d9",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
     },
-    statusRow: { display: "flex", alignItems: "center", gap: 6, marginTop: 2 },
+    statusRow: {
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginTop: 2,
+    },
     statusBadge: {
-        fontSize: 10, padding: "1px 7px", borderRadius: 8, color: "#fff",
-        fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5,
+        fontSize: 10,
+        padding: "1px 7px",
+        borderRadius: 8,
+        color: "#fff",
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
     },
-    statusDetail: { fontSize: 11, color: "#8b949e" },
+    statusDetail: {
+        fontSize: 11,
+        color: "#8b949e",
+    },
     progressBg: {
-        marginTop: 4, height: 4, borderRadius: 2, background: "#21262d", overflow: "hidden",
+        marginTop: 4,
+        height: 4,
+        borderRadius: 2,
+        background: "#21262d",
+        overflow: "hidden",
     },
-    progressFill: { height: "100%", background: "#1f6feb", borderRadius: 2, transition: "width .4s" },
-    torrentActions: { display: "flex", gap: 4, flexShrink: 0 },
+    progressFill: {
+        height: "100%",
+        background: "#1f6feb",
+        borderRadius: 2,
+        transition: "width .4s",
+    },
+    torrentActions: {
+        display: "flex",
+        gap: 4,
+        flexShrink: 0,
+    },
     ctrlBtn: {
-        width: 30, height: 30, borderRadius: 6, border: "1px solid #30363d",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        cursor: "pointer", fontSize: 14, background: "#161b22", color: "#c9d1d9",
+        width: 30,
+        height: 30,
+        borderRadius: 6,
+        border: "1px solid #30363d",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        fontSize: 14,
+        background: "#161b22",
+        color: "#c9d1d9",
     },
-    ctrlBtnPause:   { borderColor: "#d29922", color: "#d29922" },
-    ctrlBtnResume:  { borderColor: "#238636", color: "#3fb950" },
-    ctrlBtnDelete:  { borderColor: "#f85149", color: "#f85149" },
+    ctrlBtnPause: {
+        borderColor: "#d29922",
+        color: "#d29922",
+    },
+    ctrlBtnResume: {
+        borderColor: "#238636",
+        color: "#3fb950",
+    },
+    ctrlBtnDelete: {
+        borderColor: "#f85149",
+        color: "#f85149",
+    },
     ctrlBtnDefault: {},
-
-    /* File picker */
-    pickerBody: { padding: "18px 18px 10px", overflowY: "auto", flex: 1 },
-    pickerLabel: { fontSize: 14, color: "#8b949e", marginBottom: 10 },
-    fileList: { display: "flex", flexDirection: "column", gap: 4 },
+    pickerBody: {
+        padding: "18px 18px 10px",
+        overflowY: "auto",
+        flex: 1,
+    },
+    pickerLabel: {
+        fontSize: 14,
+        color: "#8b949e",
+        marginBottom: 10,
+    },
+    fileList: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+    },
     fileRow: {
-        display: "flex", alignItems: "center", gap: 12,
-        padding: "10px 14px", borderRadius: 8, border: "1px solid #21262d",
-        background: "#161b22", cursor: "pointer", textAlign: "left", width: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 14px",
+        borderRadius: 8,
+        border: "1px solid #21262d",
+        background: "#161b22",
+        cursor: "pointer",
+        textAlign: "left",
+        width: "100%",
     },
     fileRowDisabled: {
-        cursor: "not-allowed", opacity: 0.5, background: "#0d1117",
+        cursor: "not-allowed",
+        opacity: 0.5,
+        background: "#0d1117",
     },
-    fileIcon: { fontSize: 22, flexShrink: 0 },
-    fileInfo: { flex: 1, display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
-    fileName: { color: "#e6edf3", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-    fileMeta: { color: "#8b949e", fontSize: 12 },
-    playIcon: { fontSize: 18, color: "#58a6ff", flexShrink: 0 },
-
-    /* No files */
+    fileIcon: {
+        fontSize: 22,
+        flexShrink: 0,
+    },
+    fileInfo: {
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        minWidth: 0,
+    },
+    fileName: {
+        color: "#e6edf3",
+        fontSize: 14,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+    },
+    fileMeta: {
+        color: "#8b949e",
+        fontSize: 12,
+    },
+    playIcon: {
+        fontSize: 18,
+        color: "#58a6ff",
+        flexShrink: 0,
+    },
     noFilesMsg: {
-        padding: "40px 18px", textAlign: "center", color: "#8b949e", fontSize: 14,
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+        padding: "40px 18px",
+        textAlign: "center",
+        color: "#8b949e",
+        fontSize: 14,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 12,
     },
     refreshBtn: {
-        background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9",
-        borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontSize: 13,
+        background: "#21262d",
+        border: "1px solid #30363d",
+        color: "#c9d1d9",
+        borderRadius: 8,
+        padding: "8px 18px",
+        cursor: "pointer",
+        fontSize: 13,
     },
-
-    /* Player area */
     fileSelect: {
-        margin: "8px 18px 0", padding: "6px 10px", borderRadius: 6,
-        background: "#161b22", border: "1px solid #30363d", color: "#c9d1d9",
-        fontSize: 13, cursor: "pointer",
+        margin: "8px 18px 0",
+        padding: "6px 10px",
+        borderRadius: 6,
+        background: "#161b22",
+        border: "1px solid #30363d",
+        color: "#c9d1d9",
+        fontSize: 13,
+        cursor: "pointer",
     },
-    fileOption: { background: "#0d1117", color: "#c9d1d9" },
+    fileOption: {
+        background: "#0d1117",
+        color: "#c9d1d9",
+    },
 };

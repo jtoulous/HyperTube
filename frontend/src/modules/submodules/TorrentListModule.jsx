@@ -48,7 +48,7 @@ export default function TorrentListModule({
             )}
             {!torrentLoading && torrentResults.length > 0 && (
                 <div style={s.resultsContainer}>
-                    {/* ── Sort & Filter bar ── */}
+                    {/* Sort and Filter bar */}
                     <div style={s.torrentControls}>
                         <div style={s.torrentControlGroup}>
                             <span style={s.torrentControlLabel}>Sort</span>

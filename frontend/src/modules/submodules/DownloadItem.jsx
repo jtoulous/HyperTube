@@ -66,7 +66,7 @@ export default function DownloadItem({ download, onMarkWatched }) {
             isMounted = false;
             clearInterval(interval);
         };
-    }, [download.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [download.id]);
 
     const handleWatch = async () => {
         setWatchLoading(true);

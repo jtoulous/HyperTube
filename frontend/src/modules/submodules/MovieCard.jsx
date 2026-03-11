@@ -13,7 +13,6 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
     const [downloading, setDownloading] = useState(false);
     const [added, setAdded] = useState(false);
 
-    // Film is already on the server (downloaded or in progress)
     const alreadyOnServer = !!filmStatus;
     const isCompleted = filmStatus === "completed";
     const isDownloading = filmStatus === "downloading";
@@ -33,12 +32,11 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
     };
 
     const hasPoster = result.poster && result.poster !== "N/A";
-    const status = result.status;       // "downloading" | "completed" | "error" | "paused"  (library only)
+    const status = result.status; // "downloading" | "completed" | "error" | "paused" (library only)
     const availability = result.availability; // "fully_available" | "partially_available" | "downloading" | "not_available"
-    const progress = result.progress;    // 0-100 (library only)
+    const progress = result.progress; // 0-100 (library only)
     const readyIn = result.watch_ready_in;
 
-    // Watch progress (from watched_films table)
     const stoppedAt = watchProgress?.stopped_at || 0;
     const filmDuration = result.duration || 0;  // seconds
     const watchPct = (filmDuration > 0 && stoppedAt > 0) ? Math.min((stoppedAt / filmDuration) * 100, 100) : 0;
@@ -59,7 +57,7 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
                     : <div style={styles.noPoster}><span>🎬</span></div>
                 }
 
-                {/* Status / badge overlays */}
+                {/* Status */}
                 {isWatched && <div style={styles.watchedBadge}>✓ Watched</div>}
 
                 {libraryMode && availability === "fully_available" && !isWatched && (
@@ -83,14 +81,14 @@ export default function MovieCard({ result, isWatched, watchProgress, onDownload
                     <div style={styles.errorBadge}>✕ Error</div>
                 )}
 
-                {/* Progress bar overlay for downloading films */}
+                {/* Progress bar for downloading films */}
                 {libraryMode && (status === "downloading" || availability === "partially_available") && (
                     <div style={styles.progressBarBg}>
                         <div style={{ ...styles.progressBarFill, width: `${Math.min(progress || 0, 100)}%` }} />
                     </div>
                 )}
 
-                {/* Watch progress bar (how far the user watched) */}
+                {/* Watched progress bar */}
                 {hasWatchProgress && (
                     <>
                         <div style={styles.watchProgressBadge}>

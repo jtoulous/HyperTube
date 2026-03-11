@@ -11,15 +11,13 @@ export default function BrowseView({ genre, period, sortBy, minRating, year, wat
     const hasMoreRef = useRef(true);
     const pageRef    = useRef(1);
 
-    /* Generation counter: incremented on every filter reset.
-       Any in-flight or looping fetch from a previous generation is discarded. */
+    // Number of times filters have been reset
     const genRef = useRef(0);
 
-    /* Store current filters in a ref for the infinite-scroll observer */
+    // Store current filters in a ref for the infinite-scroll observer
     const filtersRef = useRef({ genre, period, sortBy, year, minRating });
     filtersRef.current = { genre, period, sortBy, year, minRating };
 
-    /* Debounce timer for slider-type filters (minRating) */
     const debounceRef = useRef(null);
 
     const sentinelRef = useRef(null);
@@ -41,7 +39,7 @@ export default function BrowseView({ genre, period, sortBy, minRating, year, wat
         setLoading(true);
         try {
             const res = await searchApi.browseMedia(params);
-            /* If a new reset happened while we were fetching, discard results */
+            // If a new reset happened while a fetch was in progress, discard results
             if (myGen !== genRef.current) return;
             const data = res.data;
             setResults(prev => append ? [...prev, ...data.results] : data.results);
@@ -59,7 +57,7 @@ export default function BrowseView({ genre, period, sortBy, minRating, year, wat
         }
     }, []);
 
-    /* Reset helper — bumps generation, clears state, fetches page 1 */
+    // Reset helper
     const resetAndFetch = useCallback((filters) => {
         const newGen = ++genRef.current;
         setInitialLoaded(false);
@@ -70,12 +68,12 @@ export default function BrowseView({ genre, period, sortBy, minRating, year, wat
         fetchPage(1, false, filters, newGen);
     }, [fetchPage]);
 
-    /* Reset and reload when discrete filters change */
+    // Reset and reload when discrete filters change
     useEffect(() => {
         resetAndFetch({ genre, period, sortBy, year, minRating });
     }, [genre, period, sortBy, year, resetAndFetch]);
 
-    /* Debounced reload for minRating slider (300ms) */
+    // Debounced reload for minRating slider (300ms)
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
