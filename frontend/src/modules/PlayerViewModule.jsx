@@ -4,24 +4,14 @@ import { searchApi } from "../api/search";
 import { filmsApi } from "../api/films";
 import PlayerModule from "./submodules/PlayerModule";
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   PlayerViewModule — inline view (not an overlay) shown inside MainContentModule
-   when a film is selected from the library.
-   ═══════════════════════════════════════════════════════════════════════════════ */
-export default function PlayerViewModule({
-    imdbId,
-    selectedFile,
-    onTimeReport,
-    initialTime,
-    onBack,
-}) {
+export default function PlayerViewModule({imdbId, selectedFile, onTimeReport, initialTime, onBack}) {
     const { isLogged, username, language } = GlobalState();
 
-    /* ─── TMDB movie details ─── */
+    // TMDB movie details
     const [details, setDetails] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(true);
 
-    /* ─── Comments ─── */
+    // Comments
     const [comments, setComments] = useState([]);
     const [commentText, setCommentText] = useState("");
     const [commentSubmitting, setCommentSubmitting] = useState(false);
@@ -31,7 +21,6 @@ export default function PlayerViewModule({
 
     const castContentRef = useRef(null);
 
-    /* Window width for responsive layout */
     const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
     useEffect(() => {
         const onResize = () => setWindowWidth(window.innerWidth);
@@ -40,7 +29,7 @@ export default function PlayerViewModule({
     }, []);
     const isMobile = windowWidth < 620;
 
-    /* Fetch TMDB details */
+    // Fetch TMDB details
     useEffect(() => {
         if (!imdbId) return;
         setDetailsLoading(true);
@@ -50,7 +39,7 @@ export default function PlayerViewModule({
             .finally(() => setDetailsLoading(false));
     }, [imdbId]);
 
-    /* Fetch comments */
+    // Fetch comments
     const loadComments = useCallback(() => {
         if (!imdbId) return;
         filmsApi.getComments(imdbId)
@@ -60,7 +49,7 @@ export default function PlayerViewModule({
 
     useEffect(() => { loadComments(); }, [loadComments]);
 
-    /* Submit comment */
+    // Submit comment
     const handleSubmitComment = async (e) => {
         e.preventDefault();
         const text = commentText.trim();
@@ -74,7 +63,7 @@ export default function PlayerViewModule({
         setCommentSubmitting(false);
     };
 
-    /* Delete comment */
+    // Delete comment
     const handleDeleteComment = async (commentId) => {
         try {
             await filmsApi.deleteComment(commentId);
@@ -86,19 +75,19 @@ export default function PlayerViewModule({
         } catch {}
     };
 
-    /* Start editing a comment */
+    // Start editing a comment
     const handleStartEdit = (comment) => {
         setEditingCommentId(comment.id);
         setEditingText(comment.text);
     };
 
-    /* Cancel editing */
+    // Cancel editing
     const handleCancelEdit = () => {
         setEditingCommentId(null);
         setEditingText("");
     };
 
-    /* Update comment */
+    // Update comment
     const handleUpdateComment = async (commentId) => {
         const text = editingText.trim();
         if (!text || editSubmitting) return;
@@ -114,7 +103,6 @@ export default function PlayerViewModule({
 
     const isPlayerMode = !!selectedFile;
 
-    /* ─── Render ─── */
     if (detailsLoading) {
         return (
             <div style={s.loadingWrap}>
@@ -126,7 +114,6 @@ export default function PlayerViewModule({
 
     return (
         <div style={s.viewRoot}>
-            {/* ─── Hero zone with backdrop ─── */}
             <div style={s.heroZone}>
                 {details?.backdrop && (
                     <img src={details.backdrop} alt="" style={s.heroBackdropImg} />
@@ -134,10 +121,9 @@ export default function PlayerViewModule({
                 <div style={s.heroOverlay} />
 
                 <div style={s.heroContent}>
-                    {/* Back button */}
                     <button style={s.backBtn} onClick={onBack}>← Back</button>
 
-                    {/* ─── Player / Source Picker ─── */}
+                    {/* Player */}
                     <section style={s.playerSection}>
                         {isPlayerMode && (
                             <>
@@ -152,7 +138,7 @@ export default function PlayerViewModule({
                         )}
                     </section>
 
-                    {/* ─── Movie info section ─── */}
+                    {/* Movie info section */}
                     {details && (
                         <section style={s.infoSection}>
                             <div style={{ ...s.infoGrid, ...(isMobile ? { flexDirection: "column", alignItems: "center" } : {}) }}>
@@ -206,9 +192,9 @@ export default function PlayerViewModule({
                 </div>
             </div>
 
-            {/* ─── Below hero: torrents, cast/crew, comments ─── */}
+            {/* torrents, cast/crew, comments */}
             <div style={s.belowHero}>
-                {/* Cast & Crew expandable */}
+                {/* Cast & Crew */}
                 {details && ((details.cast_detailed && details.cast_detailed.length > 0) ||
                   (details.crew_detailed && details.crew_detailed.length > 0)) && (
                     <div style={s.expandSection}>
@@ -372,8 +358,6 @@ export default function PlayerViewModule({
     );
 }
 
-
-/* ═══ Styles ═══ */
 const s = {
     viewRoot: {
         display: "flex",
@@ -404,7 +388,7 @@ const s = {
         fontSize: "0.9rem",
     },
 
-    /* Hero zone */
+    // Top zone with backdrop and movie info
     heroZone: {
         position: "relative",
         overflow: "hidden",
@@ -445,7 +429,7 @@ const s = {
         gap: 12,
     },
 
-    /* Back button */
+
     backBtn: {
         alignSelf: "flex-start",
         background: "#21262d",
@@ -459,7 +443,7 @@ const s = {
         cursor: "pointer",
     },
 
-    /* Player section */
+    // Player
     playerSection: {
         display: "flex",
         flexDirection: "column",
@@ -565,7 +549,7 @@ const s = {
         outline: "none",
     },
 
-    /* Info section */
+    // Info section
     infoSection: {
         position: "relative",
         display: "flex",
@@ -658,7 +642,7 @@ const s = {
         color: "#e6edf3",
     },
 
-    /* Torrent controls panel */
+    // Torrent controls panel
     torrentsPanel: {
         background: "rgba(22,27,34,0.75)",
         borderRadius: 10,
@@ -696,7 +680,7 @@ const s = {
     ctrlBtnDelete:  { borderColor: "#f85149", color: "#f85149" },
     ctrlBtnDefault: {},
 
-    /* Cast & Crew expandable */
+    // Cast & Crew expandable
     expandSection: {
         display: "flex",
         flexDirection: "column",
@@ -796,7 +780,7 @@ const s = {
         color: "#8b949e",
     },
 
-    /* Comments */
+    // Comments
     commentsSection: {
         display: "flex",
         flexDirection: "column",
