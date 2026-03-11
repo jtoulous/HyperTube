@@ -8,7 +8,6 @@ export function State({ children }) {
     const [username, setUsername] = useState("");
     const [language, setLanguage] = useState("en");
 
-    const [availableContentList, setAvailableContentList] = useState([])
     const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
 
     const refreshTimerRef = useRef(null);
@@ -31,7 +30,7 @@ export function State({ children }) {
         setUsername("");
     }, [setToken]);
 
-    //  Proactive token refresh scheduling
+    // token refresh scheduling
     const scheduleRefresh = useCallback(() => {
         if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
 
@@ -40,18 +39,16 @@ export function State({ children }) {
         if (!expiresAtStr || !currentToken) return;
 
         const expiresAt = Number(expiresAtStr);
-        // Refresh 60 seconds before expiry
         const refreshInMs = (expiresAt - 60) * 1000 - Date.now();
 
         if (refreshInMs <= 0) {
-            // Already past the refresh window — try immediately
             import('./api/client').then(mod => {
                 const axios = mod.default;
                 axios.post('/auth/refresh', { token: currentToken }).then(res => {
                     const { access_token, expires_at } = res.data;
                     setToken(access_token, expires_at);
                     scheduleRefresh();
-                }).catch(() => { /* interceptor handles fallback */ });
+                }).catch(() => {/* TODO: Handle refresh error */});
             });
             return;
         }
@@ -64,9 +61,7 @@ export function State({ children }) {
                 const { access_token, expires_at } = res.data;
                 setToken(access_token, expires_at);
                 scheduleRefresh();
-            } catch {
-                // Interceptor will handle 401 retry on next real request
-            }
+            } catch {/* TODO: Handle refresh error */}
         }, refreshInMs);
     }, [setToken]);
 
@@ -96,14 +91,14 @@ export function State({ children }) {
                 if (profile.language) setLanguage(profile.language);
             })
             .catch(() => {
-                // Token is invalid/expired — logout
+                // Token is invalid/expired, logging out
                 setTokenState(null);
                 setUsername("");
                 localStorage.removeItem('token');
             });
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
 
-    // Listen for 401 logout events from the API interceptor
+    // Listen for 401 logout events from the API
     useEffect(() => {
         const handleAuthLogout = () => {
             setTokenState(null);
