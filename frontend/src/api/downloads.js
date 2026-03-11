@@ -16,10 +16,10 @@ export const downloadsApi = {
     getDownloadFiles: (downloadId) => api.get(`/downloads/${downloadId}/files`),
 
     // Per-torrent controls (by hash)
-    pauseTorrent:      (hash) => api.post(`/downloads/torrent/${hash}/pause`),
-    resumeTorrent:     (hash) => api.post(`/downloads/torrent/${hash}/resume`),
-    deleteTorrent:     (hash) => api.delete(`/downloads/torrent/${hash}`),
-    recheckTorrent:    (hash) => api.post(`/downloads/torrent/${hash}/recheck`),
+    pauseTorrent: (hash) => api.post(`/downloads/torrent/${hash}/pause`),
+    resumeTorrent: (hash) => api.post(`/downloads/torrent/${hash}/resume`),
+    deleteTorrent: (hash) => api.delete(`/downloads/torrent/${hash}`),
+    recheckTorrent: (hash) => api.post(`/downloads/torrent/${hash}/recheck`),
     reannounceTorrent: (hash) => api.post(`/downloads/torrent/${hash}/reannounce`),
 
     forceCleanup: () => api.post("/downloads/cleanup"),

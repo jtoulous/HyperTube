@@ -1,10 +1,10 @@
 import api from "./client";
 
 export const searchApi = {
-    // Jackett torrent search — use after user picks a movie from TMDB thumbnails
+    // Jackett torrent search
     search: (query, tmdbId) => api.get("/search", { params: { query, ...(tmdbId ? { tmdb_id: tmdbId } : {}) } }),
 
-    // TMDB title search — returns thumbnail-ready cards (poster, title, year, rating)
+    // TMDB title search
     searchTmdb: (query, page = 1) => api.get("/search/tmdb", { params: { query, page } }),
 
     getMediaDetails: (imdbId) => api.get(`/search/media/${imdbId}`),

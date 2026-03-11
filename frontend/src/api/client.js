@@ -12,7 +12,6 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-//  Token refresh machinery
 let isRefreshing = false;
 let refreshSubscribers = [];
 
@@ -30,7 +29,7 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // Only attempt refresh on 401, and not for the refresh call itself
+        // Only attempt refresh on 401
         if (
             error.response?.status === 401 &&
             !originalRequest._retry &&
@@ -45,7 +44,6 @@ api.interceptors.response.use(
             }
 
             if (isRefreshing) {
-                // Another refresh is in-flight — queue this request
                 return new Promise((resolve) => {
                     addRefreshSubscriber((newToken) => {
                         originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -80,7 +78,6 @@ api.interceptors.response.use(
             }
         }
 
-        // Non-401 errors pass through
         return Promise.reject(error);
     }
 );

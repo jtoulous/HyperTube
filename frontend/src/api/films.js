@@ -1,14 +1,11 @@
 import api from "./client";
 
 export const filmsApi = {
-    /** All films on the server (downloading + completed), with can_watch info */
-    getFilms: () => api.get("/films"),
+    getFilms: () => api.get("/films"), // All films in the library
 
-    /** Video files for a specific film (by IMDb ID) */
-    getFilmFiles: (imdbId) => api.get(`/films/${encodeURIComponent(imdbId)}/files`),
+    getFilmFiles: (imdbId) => api.get(`/films/${encodeURIComponent(imdbId)}/files`), // Video files for a specific film
 
-    /** All torrents associated with a film, with live qBittorrent status */
-    getFilmTorrents: (imdbId) => api.get(`/films/${encodeURIComponent(imdbId)}/torrents`),
+    getFilmTorrents: (imdbId) => api.get(`/films/${encodeURIComponent(imdbId)}/torrents`), // All torrents for a film, with live qBittorrent status
 
     getWatchedIds: () => api.get("/films/watched"),
 
@@ -20,7 +17,7 @@ export const filmsApi = {
 
     unmarkWatched: (imdbId) => api.delete(`/films/watched/${encodeURIComponent(imdbId)}`),
 
-    /** Comments */
+    // Comments
     getComments: (imdbId) => api.get(`/films/${imdbId}/comments`),
     addComment: (imdbId, text) => api.post(`/films/${imdbId}/comments`, { text }),
     updateComment: (commentId, text) => api.patch(`/comments/${commentId}`, { text }),
