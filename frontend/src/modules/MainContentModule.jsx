@@ -72,7 +72,7 @@ export default function MainContentModule() {
 
     /*  Load watched IDs from API  */
     const loadWatchedIds = useCallback(async () => {
-        if (!isLogged) 
+        if (!isLogged)
             return;
 
         try {
@@ -613,6 +613,8 @@ const s = {
         background: "#161b22",
         overflow: "hidden",
         marginTop: "60px",
+        scrollbarWidth: "thin",
+        scrollbarColor: "#43484e transparent",
     },
     containerMobile: {
         flexDirection: "column",
