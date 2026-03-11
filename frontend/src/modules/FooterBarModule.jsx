@@ -5,7 +5,7 @@ export default function FooterBarModule() {
             bottom: 0,
             left: 0,
             right: 0,
-            padding: "0.6rem 1rem",
+            padding: "0.7rem 1rem",
             textAlign: "center",
             borderTop: "1px solid #21262d",
             background: "#0d1117",

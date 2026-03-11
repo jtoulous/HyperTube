@@ -46,6 +46,7 @@ export default function SidebarModule({
         <>
             {isMobile && sidebarOpen && <div style={s.sidebarOverlay} onClick={onCloseSidebar} />}
             <aside style={sidebarStyle}>
+              <div style={s.sidebarInner}>
                 <nav style={s.sidebarNav}>
                     <button
                         style={{ ...s.navBtn, ...(currentTab === "browse" ? s.navBtnActive : {}) }}
@@ -194,12 +195,18 @@ export default function SidebarModule({
                         <div style={s.divider} />
                     </>
                 )}
+              </div>
             </aside>
         </>
     );
 }
 
 const s = {
+    sidebarInner: {
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+    },
     sidebar: {
         position: "fixed",
         left: 0,
@@ -222,11 +229,14 @@ const s = {
         width: 220,
         minWidth: 220,
         marginLeft: 0,
+        overflowY: "auto",
+        overflowX: "hidden",
     },
     sidebarClosed: {
         width: 0,
         minWidth: 0,
-        overflow: "hidden",
+        overflowY: "hidden",
+        overflowX: "hidden",
         borderRight: "none",
         marginLeft: "-220px",
     },
