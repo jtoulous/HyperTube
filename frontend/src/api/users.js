@@ -7,7 +7,7 @@ export const usersApi = {
 
     searchUser: (username) => api.get(`/users/search/${username}`),
 
-    updateProfile: (data) => api.put("/users/me", data),
+    updateProfile: (data) => api.patch("/users/me", data),
 
     changePassword: (data) => api.put("/users/me/password", data),
 };

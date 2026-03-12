@@ -69,7 +69,7 @@ async def get_user_profile(
     return await UserService.get_profile_with_visibility(db, user_id, current_user)
 
 
-@router.put("/me", response_model=UserPrivateProfile)
+@router.patch("/me", response_model=UserPrivateProfile)
 async def update_my_profile(
     update_data: UserProfileUpdate,
     current_user: User = Depends(UserService.get_current_user),
