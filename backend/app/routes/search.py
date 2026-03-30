@@ -8,7 +8,7 @@ from app.services.tmdb_service import TmdbService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/search", tags=["search"])
+router = APIRouter(prefix="/search", tags=["Search"])
 
 jackett = JackettService()
 tmdb = TmdbService()
