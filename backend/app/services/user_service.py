@@ -59,6 +59,12 @@ class UserService:
         return user
 
     @staticmethod
+    async def get_all_users(db: AsyncSession) -> list[dict]:
+        """Get all users (id and username only), ordered alphabetically."""
+        result = await db.execute(select(User.id, User.username).order_by(User.username))
+        return [{"id": row[0], "username": row[1]} for row in result.all()]
+
+    @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
         """Get user by ID"""
         result = await db.execute(select(User).where(User.id == user_id))

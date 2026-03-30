@@ -8,11 +8,26 @@ from app.schemas.user import (
     UserProfileResponse,
     UserPrivateProfile,
     PasswordChange,
+    UserListItem,
 )
 from app.services.user_service import UserService
 from app.models.user import User
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+@router.get("", response_model=list[UserListItem])
+async def list_users(
+    current_user: User = Depends(UserService.get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get a list of all users with their id and username.
+
+    Requires: Valid JWT token in Authorization header
+    """
+    return await UserService.get_all_users(db)
+
 
 @router.get("/me", response_model=UserProfileResponse)
 async def get_current_user_info(

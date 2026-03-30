@@ -9,6 +9,7 @@ from app.models.download import Download
 from app.security import get_current_user
 from app.services.film_service import FilmService
 from app.services.torrent_service import TorrentService
+from app.services.tmdb_service import TmdbService
 from app.schemas.film import FilmResponse, WatchedFilmResponse, MarkWatchedRequest, UpdateProgressRequest, CommentResponse, CreateCommentRequest
 import logging
 
@@ -308,3 +309,45 @@ async def get_film_torrents(
             pass
 
     return {"torrents": torrents}
+
+
+@router.get("/{imdb_id}")
+async def get_film_detail(
+    imdb_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Get detailed metadata for a film by IMDb ID.
+
+    Returns:
+    - title, imdb_id
+    - IMDb/TMDB rating
+    - production year
+    - runtime (human-readable string and in minutes)
+    - available subtitles (translation languages from TMDB)
+    - number of comments
+    """
+    tmdb_svc = TmdbService()
+    details = await tmdb_svc.get_by_imdb(imdb_id)
+    if not details:
+        raise HTTPException(status_code=404, detail="Film not found on TMDB")
+
+    tmdb_id_val = details.get("tmdb_id")
+    media_type = details.get("type", "movie")
+    subtitles: list[str] = []
+    if tmdb_id_val:
+        subtitles = await tmdb_svc.get_available_subtitles(tmdb_id_val, media_type)
+
+    comment_count = await FilmService.get_comment_count(session, imdb_id)
+
+    return {
+        "imdb_id": imdb_id,
+        "title": details.get("title"),
+        "imdb_rating": details.get("imdb_rating"),
+        "year": details.get("year"),
+        "runtime": details.get("runtime"),
+        "runtime_minutes": details.get("runtime_minutes"),
+        "available_subtitles": subtitles,
+        "comment_count": comment_count,
+    }

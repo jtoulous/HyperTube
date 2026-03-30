@@ -80,6 +80,32 @@ class TmdbService:
         resp.raise_for_status()
         return resp
 
+    async def get_available_subtitles(self, tmdb_id: int, media_type: str = "movie") -> list[str]:
+        """
+        Return a list of available subtitle/translation language names for a
+        given TMDB movie or TV show, via the /translations endpoint.
+        """
+        cache_key = f"_subtitles:{tmdb_id}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]  # type: ignore[return-value]
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await self._get(
+                    client,
+                    f"{TMDB_BASE}/{media_type}/{tmdb_id}/translations",
+                )
+                data = resp.json()
+                languages = [
+                    t.get("english_name") or t.get("name") or t.get("iso_639_1", "")
+                    for t in data.get("translations", [])
+                    if t.get("iso_639_1")
+                ]
+                self._cache[cache_key] = languages
+                return languages
+        except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            logger.error(f"TMDB get_available_subtitles error for tmdb_id={tmdb_id}: {e}")
+            return []
+
     def _normalize_brief(self, item: dict, media_type: str) -> dict:
         """Lightweight normalize for search/discover results (no full detail fetch)."""
         title = item.get("title") or item.get("name") or ""

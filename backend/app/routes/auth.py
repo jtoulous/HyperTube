@@ -12,14 +12,90 @@ from app.schemas.auth import (
     PasswordReset,
     OAuthCodeRequest,
     RefreshRequest,
+    TokenRequest,
 )
 from app.services.auth_service import AuthService
+from fastapi.security import OAuth2PasswordRequestForm
 import httpx
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.post("/token")
+async def token(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Unified auth token endpoint.
+
+    **Swagger Authorize dialog**: use `username` + `password` fields.
+
+    **JSON** (curl / "Try it out"): send `{"client_id": "email_or_username", "client_secret": "password"}`
+
+    Returns `{"access_token": "...", "token_type": "bearer"}`.
+    """
+    from sqlalchemy import or_
+    from app.models.user import User as UserModel, AuthProvider
+    from sqlalchemy import select as sa_select
+    from datetime import datetime, timezone
+
+    content_type = request.headers.get("content-type", "")
+    identifier = ""
+    password = ""
+
+    if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+        form = await request.form()
+        identifier = form.get("username", "") or form.get("client_id", "")
+        password = form.get("password", "") or form.get("client_secret", "")
+    else:
+        try:
+            raw_body = await request.body()
+            if raw_body:
+                import json
+                raw = json.loads(raw_body)
+                identifier = raw.get("client_id", "") or raw.get("username", "")
+                password = raw.get("client_secret", "") or raw.get("password", "")
+        except Exception:
+            pass
+
+    if not identifier or not password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="client_id/username and client_secret/password are required",
+        )
+
+    result = await db.execute(
+        sa_select(UserModel).where(
+            or_(
+                UserModel.email == identifier,
+                UserModel.username == identifier,
+            )
+        )
+    )
+    user = result.scalar_one_or_none()
+
+    if not user or user.auth_provider != AuthProvider.EMAIL or not user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+    if not AuthService.verify_password(password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+    user.last_login = datetime.now(timezone.utc)
+    await db.commit()
+
+    access_token, expires_at = AuthService.create_access_token(user.id)
+    return {"access_token": access_token, "token_type": "bearer", "expires_at": expires_at}
+
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(

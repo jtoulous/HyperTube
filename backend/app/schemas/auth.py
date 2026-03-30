@@ -45,6 +45,11 @@ class Token(BaseModel):
 class RefreshRequest(BaseModel):
     token: str
 
+
+class TokenRequest(BaseModel):
+    client_id: str   # email or username
+    client_secret: str  # password
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str

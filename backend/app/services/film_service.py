@@ -611,6 +611,15 @@ class FilmService:
         ]
 
     @staticmethod
+    async def get_comment_count(session: AsyncSession, imdb_id: str) -> int:
+        """Return the total number of comments for a film."""
+        from sqlalchemy import func as sa_func
+        result = await session.execute(
+            select(sa_func.count()).select_from(Comment).where(Comment.imdb_id == imdb_id)
+        )
+        return result.scalar_one() or 0
+
+    @staticmethod
     async def add_comment(session: AsyncSession, user_id: UUID, imdb_id: str, text: str) -> Comment:
         """Add a comment on a film."""
         comment = Comment(user_id=user_id, imdb_id=imdb_id, text=text)

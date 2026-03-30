@@ -49,3 +49,11 @@ class UserProfileResponse(BaseModel):
     profile: dict
     visibility: str
     is_self: bool = False
+
+
+class UserListItem(BaseModel):
+    id: uuid.UUID
+    username: str
+
+    class Config:
+        from_attributes = True
